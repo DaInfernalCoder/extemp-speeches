@@ -34,22 +34,85 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { youtube_url } = body;
+    const contentType = request.headers.get('content-type') || '';
+    let speechUrl: string;
 
-    if (!youtube_url) {
-      return NextResponse.json(
-        { error: 'YouTube URL is required' },
-        { status: 400 }
-      );
-    }
+    // Handle multipart/form-data (audio file upload)
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      const audioFile = formData.get('audio_file') as File | null;
 
-    // Validate YouTube URL format
-    if (!isValidYouTubeUrl(youtube_url)) {
-      return NextResponse.json(
-        { error: 'Invalid YouTube URL format. Please provide a valid YouTube link.' },
-        { status: 400 }
-      );
+      if (!audioFile) {
+        return NextResponse.json(
+          { error: 'Audio file is required' },
+          { status: 400 }
+        );
+      }
+
+      // Validate file size (10 MB)
+      const maxSize = 10 * 1024 * 1024;
+      if (audioFile.size > maxSize) {
+        return NextResponse.json(
+          { error: 'Audio file must be less than 10 MB' },
+          { status: 400 }
+        );
+      }
+
+      // Validate file type
+      if (!audioFile.type.startsWith('audio/')) {
+        return NextResponse.json(
+          { error: 'Invalid file type. Please upload an audio file.' },
+          { status: 400 }
+        );
+      }
+
+      // Upload to Supabase Storage
+      const fileExt = audioFile.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('speech-audio')
+        .upload(fileName, audioFile, {
+          contentType: audioFile.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Error uploading audio:', uploadError);
+        return NextResponse.json(
+          { error: 'Failed to upload audio file' },
+          { status: 500 }
+        );
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('speech-audio')
+        .getPublicUrl(uploadData.path);
+
+      speechUrl = publicUrl;
+    } 
+    // Handle application/json (YouTube URL)
+    else {
+      const body = await request.json();
+      const { speech_url } = body;
+
+      if (!speech_url) {
+        return NextResponse.json(
+          { error: 'YouTube URL is required' },
+          { status: 400 }
+        );
+      }
+
+      // Validate YouTube URL format
+      if (!isValidYouTubeUrl(speech_url)) {
+        return NextResponse.json(
+          { error: 'Invalid YouTube URL format. Please provide a valid YouTube link.' },
+          { status: 400 }
+        );
+      }
+
+      speechUrl = speech_url;
     }
 
     // Check for duplicate URL for this user
@@ -57,12 +120,12 @@ export async function POST(request: Request) {
       .from('speeches')
       .select('id')
       .eq('user_id', user.id)
-      .eq('youtube_url', youtube_url)
+      .eq('speech_url', speechUrl)
       .single();
 
     if (existingSpeech) {
       return NextResponse.json(
-        { error: 'You have already submitted this YouTube URL' },
+        { error: 'You have already submitted this recording' },
         { status: 409 }
       );
     }
@@ -75,7 +138,7 @@ export async function POST(request: Request) {
       .from('speeches')
       .insert({
         user_id: user.id,
-        youtube_url,
+        speech_url: speechUrl,
         week_start_date: weekStartDate,
       })
       .select()

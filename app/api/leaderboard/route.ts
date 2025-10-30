@@ -27,7 +27,7 @@ export async function GET() {
       
       const { data: speeches, error: speechesError } = await supabase
         .from('speeches')
-        .select('user_id, youtube_url, week_start_date, users(name, avatar_url)');
+        .select('user_id, speech_url, week_start_date, users(name, avatar_url)');
 
       if (speechesError) {
         console.error('Error fetching speeches:', speechesError);
@@ -48,7 +48,7 @@ export async function GET() {
             avatar_url: speech.users?.avatar_url,
             all_time_speeches: 0,
             weekly_speeches: 0,
-            youtube_urls: [],
+            speech_urls: [],
           });
         }
         
@@ -57,9 +57,9 @@ export async function GET() {
         if (speech.week_start_date === weekStartDate) {
           stats.weekly_speeches++;
         }
-        // Add YouTube URL to the array
-        if (speech.youtube_url && !stats.youtube_urls.includes(speech.youtube_url)) {
-          stats.youtube_urls.push(speech.youtube_url);
+        // Add speech URL to the array
+        if (speech.speech_url && !stats.speech_urls.includes(speech.speech_url)) {
+          stats.speech_urls.push(speech.speech_url);
         }
       });
 

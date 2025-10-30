@@ -5,32 +5,59 @@
 All backend features have been successfully implemented:
 
 - ✅ Database schema with users and speeches tables
-- ✅ Row Level Security (RLS) policies
+- ✅ Row Level Security (RLS) policies on tables and storage
 - ✅ Google OAuth authentication
 - ✅ Speech submission API with YouTube URL validation
+- ✅ Audio file upload via Supabase Storage (max 10 MB)
+- ✅ Storage bucket `speech-audio` for audio files
 - ✅ Duplicate URL checking per user
 - ✅ Weekly and all-time speech tracking
 - ✅ Real-time leaderboard updates
-- ✅ Auth components and modal UI
+- ✅ Auth components and modal UI with tabbed interface
 
 ## 🔧 Required Configuration
 
-### 1. Enable Google OAuth in Supabase
+### 1. Configure Supabase URL Settings
 
-You need to configure Google OAuth provider in your Supabase project:
+**IMPORTANT**: Before enabling OAuth, configure your redirect URLs:
 
 1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
 2. Select your project (fcmxrgdcxcttwgorwpmf)
-3. Navigate to **Authentication** → **Providers**
-4. Find **Google** in the list and click **Enable**
-5. You&apos;ll need to:
+3. Navigate to **Authentication** → **URL Configuration**
+4. Set **Site URL** to your production domain (e.g., `https://yourdomain.com`)
+5. Add **Redirect URLs**:
+   - `https://yourdomain.com/auth/callback` (production)
+   - `http://localhost:3000/auth/callback` (local development)
+
+### 2. Enable Google OAuth in Supabase
+
+1. In Supabase Dashboard, navigate to **Authentication** → **Providers**
+2. Find **Google** in the list and click **Enable**
+3. You&apos;ll need to:
    - Create a Google OAuth Client in [Google Cloud Console](https://console.cloud.google.com/)
    - Add authorized redirect URIs:
-     - `https://fcmxrgdcxcttwgorwpmf.supabase.co/auth/v1/callback`
+     - `https://fcmxrgdcxcttwgorwpmf.supabase.co/auth/v1/callback` (Supabase callback)
+     - `https://yourdomain.com/auth/callback` (production)
      - `http://localhost:3000/auth/callback` (for local development)
    - Copy the Client ID and Client Secret to Supabase
 
-### 2. Enable Realtime (Optional but Recommended)
+### 3. Configure Storage Bucket (Already Created via Migration)
+
+The `speech-audio` storage bucket has been created via database migration with the following settings:
+- **Public access**: Enabled (for playback)
+- **File size limit**: 10 MB
+- **Allowed MIME types**: All audio formats (audio/*)
+- **RLS policies**: 
+  - Authenticated users can upload to their own folders
+  - Public read access for all audio files
+  - Users can delete their own files
+
+If you need to verify or manually create the bucket:
+1. Go to **Storage** in Supabase Dashboard
+2. Verify `speech-audio` bucket exists
+3. Check that RLS policies are enabled
+
+### 4. Enable Realtime (Optional but Recommended)
 
 For live leaderboard updates:
 
@@ -53,7 +80,9 @@ npm run dev
 
 1. **Visit the app** → See the leaderboard with weekly and all-time speech counts
 2. **Click &quot;Log In&quot;** → Authenticate with Google OAuth
-3. **Click &quot;New Speech&quot;** → Submit an unlisted YouTube link
+3. **Click &quot;New Speech&quot;** → Choose to submit either:
+   - An unlisted YouTube link (YouTube URL tab)
+   - Upload an audio file directly (Upload Audio tab, max 10 MB)
 4. **Leaderboard updates** → See rankings update in real-time
 
 ### Weekly Tracking
@@ -64,9 +93,17 @@ npm run dev
 
 ### Duplicate Prevention
 
-- Users cannot submit the same YouTube URL twice
+- Users cannot submit the same recording URL twice (YouTube or audio)
 - Validation happens on both client and server side
 - Error message shown if duplicate is detected
+
+### Audio Upload Features
+
+- **File size limit**: 10 MB (approximately 10 minutes of audio at standard quality)
+- **Supported formats**: All audio formats (MP3, M4A, WAV, OGG, AAC, FLAC, etc.)
+- **Storage**: Files are stored in Supabase Storage bucket `speech-audio`
+- **Organization**: Files are organized by user ID in separate folders
+- **Access**: Public read access for playback, authenticated write access only
 
 ## 🗂️ Database Schema
 
@@ -80,9 +117,15 @@ npm run dev
 ### `speeches` table
 - `id` (UUID, primary key)
 - `user_id` (UUID, foreign key to users)
-- `youtube_url` (TEXT)
+- `speech_url` (TEXT) - stores either YouTube URL or Supabase Storage URL
 - `submitted_at` (TIMESTAMPTZ)
 - `week_start_date` (DATE)
+
+### `speech-audio` storage bucket
+- Public read access for audio playback
+- Authenticated write access (users can upload to their own folders)
+- 10 MB file size limit
+- Supports all audio MIME types
 
 ## 🔐 Security
 
@@ -93,10 +136,19 @@ npm run dev
 
 ## 🐛 Troubleshooting
 
+### Redirected to localhost in production
+- **Cause**: Supabase redirect URLs not configured for production domain
+- **Solution**: 
+  1. Go to Supabase Dashboard → **Authentication** → **URL Configuration**
+  2. Set **Site URL** to your production domain
+  3. Add your production callback URL to **Redirect URLs** (e.g., `https://yourdomain.com/auth/callback`)
+  4. Also add it to Google Cloud Console authorized redirect URIs
+
 ### Google OAuth not working
 - Verify redirect URIs in Google Cloud Console
 - Check that Google provider is enabled in Supabase
 - Ensure environment variables are loaded (restart dev server)
+- Verify Supabase URL Configuration includes both production and localhost URLs
 
 ### Leaderboard not updating
 - Check browser console for errors

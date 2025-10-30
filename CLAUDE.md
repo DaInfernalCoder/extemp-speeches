@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an extemporaneous speeches leaderboard application built with Next.js 16, React 19, TypeScript, and Supabase. The app displays a competitive leaderboard showing speakers' rankings with both weekly and all-time speech counts. Users can log in with Google OAuth and submit their speech recordings via unlisted YouTube links.
+This is an extemporaneous speeches leaderboard application built with Next.js 16, React 19, TypeScript, and Supabase. The app displays a competitive leaderboard showing speakers' rankings with both weekly and all-time speech counts. Users can log in with Google OAuth and submit their speech recordings via unlisted YouTube links or by uploading audio files directly.
 
 ## Development Commands
 
@@ -48,13 +48,15 @@ This project uses **Tailwind CSS v4**, which has different syntax than v3:
 
 ### Supabase Backend
 
-The application uses **Supabase** for authentication and data storage:
+The application uses **Supabase** for authentication, data storage, and file storage:
 - **Database Tables**:
   - `users`: Stores user profiles (synced with auth.users)
-  - `speeches`: Stores speech submissions with YouTube URLs and week tracking
+  - `speeches`: Stores speech submissions with speech URLs and week tracking
+- **Storage Buckets**:
+  - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 10 MB limit)
 - **Authentication**: Google OAuth via Supabase Auth
 - **Real-time**: Leaderboard updates live when speeches are submitted
-- **RLS (Row Level Security)**: Enabled on all tables for security
+- **RLS (Row Level Security)**: Enabled on all tables and storage buckets for security
 
 Configuration:
 - Supabase client utilities in [lib/supabase/](lib/supabase/)
@@ -63,8 +65,10 @@ Configuration:
 
 ### API Routes
 
-- **POST /api/speeches/submit**: Submit a new speech with YouTube URL
-  - Validates YouTube URL format
+- **POST /api/speeches/submit**: Submit a new speech with YouTube URL or audio file
+  - Accepts either JSON (YouTube URL) or multipart/form-data (audio file upload)
+  - For YouTube: Validates URL format
+  - For audio: Validates file type and size (max 10 MB), uploads to Supabase Storage
   - Checks for duplicate URLs per user
   - Calculates week start date (Monday)
   - Requires authentication
@@ -72,7 +76,7 @@ Configuration:
 - **GET /api/leaderboard**: Fetch leaderboard data
   - Returns all users with weekly and all-time speech counts
   - Sorted by all-time speeches (descending)
-  - Includes user profiles with avatars
+  - Includes user profiles with avatars and speech URLs
 
 ### Current State
 
@@ -83,13 +87,16 @@ The application features:
   - Displays weekly and all-time speech counts
   - Podium visualization for top 3 speakers
   - Responsive table layout for all entries
+  - Links to speech recordings (YouTube or audio files)
   
 - **AuthButton Component** ([app/components/AuthButton.tsx](app/components/AuthButton.tsx)):
   - Google OAuth login/logout
   - Shows user state
   
 - **SpeechSubmitModal Component** ([app/components/SpeechSubmitModal.tsx](app/components/SpeechSubmitModal.tsx)):
-  - Modal form for submitting YouTube URLs
+  - Tabbed interface for choosing between YouTube URL or audio upload
+  - YouTube tab: URL input with validation
+  - Audio upload tab: File input with drag-and-drop, progress indicator, size validation (max 10 MB)
   - Client-side and server-side validation
   - Duplicate detection
 

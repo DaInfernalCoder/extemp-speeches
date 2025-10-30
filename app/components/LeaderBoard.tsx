@@ -12,7 +12,7 @@ interface LeaderBoardEntry {
   all_time_speeches: number;
   weekly_speeches: number;
   avatar_url?: string;
-  youtube_urls: string[];
+  speech_urls: string[];
 }
 
 interface PodiumData {
@@ -229,9 +229,9 @@ const LeaderBoard: React.FC = () => {
                 <span className="text-sm font-medium text-gray-600">All Time</span>
               </div>
 
-              {/* YouTube URLs Header */}
+              {/* Speech URLs Header */}
               <div className="bg-gray-50 rounded-r-lg px-6 py-3 flex items-center justify-center gap-2">
-                <span className="text-sm font-medium text-gray-600">Videos</span>
+                <span className="text-sm font-medium text-gray-600">Recordings</span>
               </div>
             </div>
 
@@ -272,11 +272,11 @@ const LeaderBoard: React.FC = () => {
                     <span className="text-sm font-normal text-gray-700">{entry.all_time_speeches}</span>
                   </div>
 
-                  {/* YouTube URLs */}
+                  {/* Speech URLs */}
                   <div className="px-6 py-4 text-center">
                     <div className="flex flex-wrap gap-2 justify-center">
-                      {entry.youtube_urls && entry.youtube_urls.length > 0 ? (
-                        entry.youtube_urls.map((url, urlIndex) => (
+                      {entry.speech_urls && entry.speech_urls.length > 0 ? (
+                        entry.speech_urls.map((url, urlIndex) => (
                           <a
                             key={urlIndex}
                             href={url}
@@ -284,7 +284,7 @@ const LeaderBoard: React.FC = () => {
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                           >
-                            Video {urlIndex + 1}
+                            Recording {urlIndex + 1}
                           </a>
                         ))
                       ) : (
@@ -319,11 +319,11 @@ const LeaderBoard: React.FC = () => {
                     <span>Weekly: {entry.weekly_speeches}</span>
                     <span>All Time: {entry.all_time_speeches}</span>
                   </div>
-                  {entry.youtube_urls && entry.youtube_urls.length > 0 && (
+                  {entry.speech_urls && entry.speech_urls.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-100">
-                      <span className="text-xs text-gray-500 mb-1 block">Videos:</span>
+                      <span className="text-xs text-gray-500 mb-1 block">Recordings:</span>
                       <div className="flex flex-wrap gap-2">
-                        {entry.youtube_urls.map((url, urlIndex) => (
+                        {entry.speech_urls.map((url, urlIndex) => (
                           <a
                             key={urlIndex}
                             href={url}
@@ -331,7 +331,7 @@ const LeaderBoard: React.FC = () => {
                             rel="noopener noreferrer"
                             className="text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                           >
-                            Video {urlIndex + 1}
+                            Recording {urlIndex + 1}
                           </a>
                         ))}
                       </div>
