@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import AuthButton from './AuthButton';
 import SpeechSubmitModal from './SpeechSubmitModal';
@@ -53,28 +54,31 @@ const PodiumCard: React.FC<{ data: PodiumData; height: string; gradient: string;
   <div className={`flex flex-col items-center ${height} relative transition-transform hover:scale-105 duration-300`}>
     {/* Avatar */}
     <div className="flex flex-col items-center gap-2 mb-3 relative z-10">
-      <div 
-        className={`${data.place === 1 ? 'w-16 h-16' : 'w-14 h-14'} rounded-full p-1 shadow-lg`}
+      <div
+        className={`${data.place === 1 ? 'w-12 sm:w-16 h-12 sm:h-16' : 'w-11 sm:w-14 h-11 sm:h-14'} rounded-full p-1 shadow-lg`}
         style={{ background: avatarRing }}
       >
         {data.avatar_url ? (
-          <img 
-            src={data.avatar_url} 
+          <Image
+            src={data.avatar_url}
             alt={data.name}
+            width={64}
+            height={64}
             className="w-full h-full rounded-full object-cover"
+            loading="lazy"
           />
         ) : (
           <div className="w-full h-full rounded-full bg-linear-to-br from-gray-400 to-gray-600 flex items-center justify-center shadow-inner">
-            <div className={`${data.place === 1 ? 'w-10 h-10' : 'w-8 h-8'} bg-linear-to-br from-gray-500 to-gray-700 rounded-full`}></div>
+            <div className={`${data.place === 1 ? 'w-7 sm:w-10 h-7 sm:h-10' : 'w-6 sm:w-8 h-6 sm:h-8'} bg-linear-to-br from-gray-500 to-gray-700 rounded-full`}></div>
           </div>
         )}
       </div>
-      <span className={`${data.place === 1 ? 'text-base font-semibold' : 'text-sm font-medium'} text-gray-800`}>{data.name}</span>
+      <span className={`${data.place === 1 ? 'text-sm sm:text-base font-semibold' : 'text-xs sm:text-sm font-medium'} text-gray-800`}>{data.name}</span>
     </div>
 
     {/* Podium */}
     <div
-      className={`w-[130px] rounded-t-2xl flex flex-col items-center justify-end ${data.place === 3 ? 'pb-5' : 'pb-5'} relative shadow-xl transition-shadow hover:shadow-2xl`}
+      className={`w-[110px] sm:w-[130px] rounded-t-2xl flex flex-col items-center justify-end ${data.place === 3 ? 'pb-5' : 'pb-5'} relative shadow-xl transition-shadow hover:shadow-2xl`}
       style={{
         height: 'calc(100% - 90px)',
         background: gradient,
@@ -82,8 +86,8 @@ const PodiumCard: React.FC<{ data: PodiumData; height: string; gradient: string;
       }}
     >
       {/* Position number */}
-      <span 
-        className={`${data.place === 1 ? 'text-lg font-bold' : 'text-base font-semibold'} text-gray-800 drop-shadow-sm`}
+      <span
+        className={`${data.place === 1 ? 'text-base sm:text-lg font-bold' : 'text-sm sm:text-base font-semibold'} text-gray-800 drop-shadow-sm`}
       >
         {data.position}
       </span>
@@ -229,7 +233,7 @@ const LeaderBoard: React.FC = () => {
 
       {/* Podium Section */}
       {!loading && podiumData.length >= 3 && (
-        <div className="flex flex-col sm:flex-row justify-center items-center sm:items-end gap-6 sm:gap-6 mb-16">
+        <div className="flex flex-col sm:flex-row justify-center items-center sm:items-end gap-4 sm:gap-6 mb-16">
           {/* 2nd Place */}
           <PodiumCard
             data={podiumData[1]}
@@ -302,10 +306,13 @@ const LeaderBoard: React.FC = () => {
                   {/* Name and Avatar */}
                   <div className="px-6 py-4 flex items-center gap-3">
                     {entry.avatar_url ? (
-                      <img
+                      <Image
                         src={entry.avatar_url}
                         alt={entry.name}
+                        width={40}
+                        height={40}
                         className="w-10 h-10 rounded-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
@@ -366,7 +373,7 @@ const LeaderBoard: React.FC = () => {
                                 <div>
                                   <button
                                     onClick={() => toggleBallotExpansion(speechId)}
-                                    className="text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
+                                    className="text-blue-600 hover:text-blue-800 active:text-blue-900 transition-colors text-left py-2 px-2 -ml-2 rounded hover:bg-blue-50 active:bg-blue-100"
                                   >
                                     {ballotCount} ballot{ballotCount !== 1 ? 's' : ''}
                                   </button>
@@ -413,10 +420,13 @@ const LeaderBoard: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                       {entry.avatar_url ? (
-                        <img
+                        <Image
                           src={entry.avatar_url}
                           alt={entry.name}
+                          width={40}
+                          height={40}
                           className="w-10 h-10 rounded-full object-cover"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
@@ -456,7 +466,7 @@ const LeaderBoard: React.FC = () => {
                                 {ballotCount > 0 && (
                                   <button
                                     onClick={() => toggleBallotExpansion(speechId)}
-                                    className="text-xs text-gray-600 hover:text-gray-800"
+                                    className="text-xs text-gray-600 hover:text-gray-800 active:text-gray-900 py-2 px-2 -ml-2 rounded hover:bg-gray-50 active:bg-gray-100"
                                   >
                                     ({ballotCount} ballot{ballotCount !== 1 ? 's' : ''})
                                   </button>

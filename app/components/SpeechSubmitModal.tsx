@@ -128,7 +128,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4"
+        className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">Submit New Speech</h2>
@@ -139,20 +139,10 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             type="button"
             onClick={() => setSubmissionType('youtube')}
             disabled={loading}
-            className="flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-all disabled:opacity-50"
+            className="flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all disabled:opacity-50 active:scale-95"
             style={{
               backgroundColor: submissionType === 'youtube' ? '#2C2C2C' : '#E5E5E5',
               color: submissionType === 'youtube' ? '#F5F5F5' : '#2C2C2C'
-            }}
-            onMouseEnter={(e) => {
-              if (submissionType !== 'youtube' && !loading) {
-                e.currentTarget.style.backgroundColor = '#D5D5D5';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (submissionType !== 'youtube') {
-                e.currentTarget.style.backgroundColor = '#E5E5E5';
-              }
             }}
           >
             YouTube URL
@@ -161,20 +151,10 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             type="button"
             onClick={() => setSubmissionType('audio')}
             disabled={loading}
-            className="flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-all disabled:opacity-50"
+            className="flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all disabled:opacity-50 active:scale-95"
             style={{
               backgroundColor: submissionType === 'audio' ? '#2C2C2C' : '#E5E5E5',
               color: submissionType === 'audio' ? '#F5F5F5' : '#2C2C2C'
-            }}
-            onMouseEnter={(e) => {
-              if (submissionType !== 'audio' && !loading) {
-                e.currentTarget.style.backgroundColor = '#D5D5D5';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (submissionType !== 'audio') {
-                e.currentTarget.style.backgroundColor = '#E5E5E5';
-              }
             }}
           >
             Upload Audio
@@ -211,7 +191,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 type="file"
                 accept="audio/*"
                 onChange={handleFileChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-base file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 active:file:bg-gray-300 cursor-pointer"
                 required
                 disabled={loading}
               />
@@ -226,9 +206,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
               
               {uploadProgress > 0 && uploadProgress < 100 && (
                 <div className="mt-3">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-3">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>

@@ -143,7 +143,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-2xl font-semibold text-gray-800 mb-6">Submit Ballot</h2>
@@ -195,7 +195,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                   max="10"
                   value={gestures}
                   onChange={(e) => setGestures(Number(e.target.value))}
-                  className="w-full"
+                  className="w-full h-8 cursor-pointer mobile-slider"
                   disabled={loading}
                 />
               </div>
@@ -212,7 +212,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                   max="10"
                   value={delivery}
                   onChange={(e) => setDelivery(Number(e.target.value))}
-                  className="w-full"
+                  className="w-full h-8 cursor-pointer mobile-slider"
                   disabled={loading}
                 />
               </div>
@@ -229,7 +229,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                   max="10"
                   value={pauses}
                   onChange={(e) => setPauses(Number(e.target.value))}
-                  className="w-full"
+                  className="w-full h-8 cursor-pointer mobile-slider"
                   disabled={loading}
                 />
               </div>
@@ -246,7 +246,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                   max="10"
                   value={content}
                   onChange={(e) => setContent(Number(e.target.value))}
-                  className="w-full"
+                  className="w-full h-8 cursor-pointer mobile-slider"
                   disabled={loading}
                 />
               </div>
@@ -263,7 +263,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                   max="10"
                   value={entertaining}
                   onChange={(e) => setEntertaining(Number(e.target.value))}
-                  className="w-full"
+                  className="w-full h-8 cursor-pointer mobile-slider"
                   disabled={loading}
                 />
               </div>
@@ -279,8 +279,8 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
                 placeholder="Share your thoughts on this speech..."
-                rows={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 resize-none"
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 resize-y min-h-[80px]"
                 disabled={loading}
               />
             </div>
@@ -288,12 +288,12 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
             {/* Better Than Last Checkbox */}
             {selectedSpeech && selectedSpeech.has_previous_speeches && (
               <div className="mb-6">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-3 cursor-pointer py-2">
                   <input
                     type="checkbox"
                     checked={betterThanLast}
                     onChange={(e) => setBetterThanLast(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    className="w-6 h-6 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     disabled={loading}
                   />
                   <span className="text-sm font-medium text-gray-700">
