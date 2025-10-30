@@ -139,11 +139,21 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             type="button"
             onClick={() => setSubmissionType('youtube')}
             disabled={loading}
-            className={`flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${
-              submissionType === 'youtube'
-                ? 'bg-gray-800 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+            className="flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-all disabled:opacity-50"
+            style={{
+              backgroundColor: submissionType === 'youtube' ? '#2C2C2C' : '#E5E5E5',
+              color: submissionType === 'youtube' ? '#F5F5F5' : '#2C2C2C'
+            }}
+            onMouseEnter={(e) => {
+              if (submissionType !== 'youtube' && !loading) {
+                e.currentTarget.style.backgroundColor = '#D5D5D5';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (submissionType !== 'youtube') {
+                e.currentTarget.style.backgroundColor = '#E5E5E5';
+              }
+            }}
           >
             YouTube URL
           </button>
@@ -151,11 +161,21 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             type="button"
             onClick={() => setSubmissionType('audio')}
             disabled={loading}
-            className={`flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${
-              submissionType === 'audio'
-                ? 'bg-gray-800 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+            className="flex-1 px-4 py-2 rounded-lg font-medium text-sm transition-all disabled:opacity-50"
+            style={{
+              backgroundColor: submissionType === 'audio' ? '#2C2C2C' : '#E5E5E5',
+              color: submissionType === 'audio' ? '#F5F5F5' : '#2C2C2C'
+            }}
+            onMouseEnter={(e) => {
+              if (submissionType !== 'audio' && !loading) {
+                e.currentTarget.style.backgroundColor = '#D5D5D5';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (submissionType !== 'audio') {
+                e.currentTarget.style.backgroundColor = '#E5E5E5';
+              }
+            }}
           >
             Upload Audio
           </button>
