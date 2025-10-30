@@ -52,10 +52,11 @@ The application uses **Supabase** for authentication, data storage, and file sto
 - **Database Tables**:
   - `users`: Stores user profiles (synced with auth.users)
   - `speeches`: Stores speech submissions with speech URLs and week tracking
+  - `ballots`: Stores speech reviews with multiple criteria ratings (1-10 scale), feedback text, and comparison flags
 - **Storage Buckets**:
   - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 10 MB limit)
 - **Authentication**: Google OAuth via Supabase Auth
-- **Real-time**: Leaderboard updates live when speeches are submitted
+- **Real-time**: Leaderboard and ballots update live when speeches or ballots are submitted
 - **RLS (Row Level Security)**: Enabled on all tables and storage buckets for security
 
 Configuration:
@@ -73,8 +74,24 @@ Configuration:
   - Calculates week start date (Monday)
   - Requires authentication
 
+- **GET /api/speeches**: Fetch all speeches for ballot selection
+  - Returns speeches ordered by user and submission date
+  - Generates titles in format "User Name - Oct 30 -1", "User Name - Oct 30 -2", etc.
+  - Includes flag indicating if speaker has previous speeches (for "better than last" logic)
+  - Requires authentication
+
+- **POST /api/ballots/submit**: Submit a ballot (review) for a speech
+  - Accepts JSON with speech_id, rating criteria (gestures, delivery, pauses, content, entertaining), feedback text, and better_than_last flag
+  - Validates all ratings are 1-10
+  - Prevents users from reviewing their own speeches
+  - Prevents duplicate reviews (one ballot per reviewer per speech)
+  - Validates "better than last" checkbox only if speaker has previous speeches
+  - Requires authentication
+
 - **GET /api/leaderboard**: Fetch leaderboard data
   - Returns all users with weekly and all-time speech counts
+  - Includes speech details with associated ballots
+  - Ballots include reviewer names and all rating criteria
   - Sorted by all-time speeches (descending)
   - Includes user profiles with avatars and speech URLs
 
@@ -83,11 +100,14 @@ Configuration:
 The application features:
 - **LeaderBoard Component** ([app/components/LeaderBoard.tsx](app/components/LeaderBoard.tsx)):
   - Fetches real leaderboard data from API
-  - Real-time updates via Supabase subscriptions
+  - Real-time updates via Supabase subscriptions (speeches and ballots)
   - Displays weekly and all-time speech counts
   - Podium visualization for top 3 speakers
   - Responsive table layout for all entries
   - Links to speech recordings (YouTube or audio files)
+  - Displays ballots column with expandable ballot details
+  - Shows reviewer names and rating criteria (gestures, delivery, pauses, content, entertaining)
+  - Displays "better than last" indicator and feedback text
   
 - **AuthButton Component** ([app/components/AuthButton.tsx](app/components/AuthButton.tsx)):
   - Google OAuth login/logout
@@ -100,13 +120,24 @@ The application features:
   - Client-side and server-side validation
   - Duplicate detection
 
+- **BallotSubmitModal Component** ([app/components/BallotSubmitModal.tsx](app/components/BallotSubmitModal.tsx)):
+  - Speech selection dropdown with speeches grouped by user
+  - Speech titles display as "User Name - Oct 30 -1" format
+  - Five rating sliders (1-10) for: gestures, delivery, pauses, content, entertaining
+  - Optional text area for feedback
+  - Conditional "better than last" checkbox (only shown if speaker has previous recordings)
+  - Form validation and submission
+  - Prevents reviewing own speeches
+
 ## Code Organization
 
 ### Directory Structure
 
-- **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal)
+- **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal)
 - **app/api/**: API route handlers for backend operations
+  - `speeches/`: Fetch speeches for ballot selection
   - `speeches/submit/`: Speech submission endpoint
+  - `ballots/submit/`: Ballot submission endpoint
   - `leaderboard/`: Leaderboard data endpoint
 - **app/auth/callback/**: OAuth callback handler for Supabase
 - **lib/supabase/**: Supabase client utilities

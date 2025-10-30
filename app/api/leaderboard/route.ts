@@ -27,7 +27,25 @@ export async function GET() {
       
       const { data: speeches, error: speechesError } = await supabase
         .from('speeches')
-        .select('user_id, speech_url, week_start_date, users(name, avatar_url)');
+        .select(`
+          id,
+          user_id,
+          speech_url,
+          week_start_date,
+          users(name, avatar_url),
+          ballots(
+            id,
+            gestures,
+            delivery,
+            pauses,
+            content,
+            entertaining,
+            feedback_text,
+            better_than_last,
+            created_at,
+            reviewer_id
+          )
+        `);
 
       if (speechesError) {
         console.error('Error fetching speeches:', speechesError);
@@ -37,8 +55,27 @@ export async function GET() {
         );
       }
 
+      // First, get all reviewer names for ballots
+      const reviewerIds = new Set<string>();
+      speeches?.forEach((speech: any) => {
+        speech.ballots?.forEach((ballot: any) => {
+          reviewerIds.add(ballot.reviewer_id);
+        });
+      });
+
+      // Fetch reviewer information
+      const { data: reviewers } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('id', Array.from(reviewerIds));
+
+      const reviewerMap = new Map(
+        reviewers?.map(r => [r.id, r.name]) || []
+      );
+
       // Calculate stats in JavaScript
       const userStats = new Map();
+      const speechDetailsMap = new Map();
       
       speeches?.forEach((speech: any) => {
         const userId = speech.user_id;
@@ -49,6 +86,7 @@ export async function GET() {
             all_time_speeches: 0,
             weekly_speeches: 0,
             speech_urls: [],
+            speech_details: [],
           });
         }
         
@@ -57,10 +95,23 @@ export async function GET() {
         if (speech.week_start_date === weekStartDate) {
           stats.weekly_speeches++;
         }
+        
         // Add speech URL to the array
         if (speech.speech_url && !stats.speech_urls.includes(speech.speech_url)) {
           stats.speech_urls.push(speech.speech_url);
         }
+
+        // Store speech details with ballots
+        const ballotsWithReviewers = speech.ballots?.map((ballot: any) => ({
+          ...ballot,
+          reviewer_name: reviewerMap.get(ballot.reviewer_id) || 'Anonymous',
+        })) || [];
+
+        stats.speech_details.push({
+          speech_id: speech.id,
+          speech_url: speech.speech_url,
+          ballots: ballotsWithReviewers,
+        });
       });
 
       // Convert to array and sort by all-time speeches

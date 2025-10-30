@@ -4,7 +4,27 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AuthButton from './AuthButton';
 import SpeechSubmitModal from './SpeechSubmitModal';
+import BallotSubmitModal from './BallotSubmitModal';
 import type { User } from '@supabase/supabase-js';
+
+interface Ballot {
+  id: string;
+  gestures: number;
+  delivery: number;
+  pauses: number;
+  content: number;
+  entertaining: number;
+  feedback_text?: string;
+  better_than_last: boolean;
+  created_at: string;
+  reviewer_name: string;
+}
+
+interface SpeechDetails {
+  speech_id: string;
+  speech_url: string;
+  ballots: Ballot[];
+}
 
 interface LeaderBoardEntry {
   name: string;
@@ -13,6 +33,7 @@ interface LeaderBoardEntry {
   weekly_speeches: number;
   avatar_url?: string;
   speech_urls: string[];
+  speech_details: SpeechDetails[];
 }
 
 interface PodiumData {
@@ -74,7 +95,9 @@ const LeaderBoard: React.FC = () => {
   const [leaderboardData, setLeaderboardData] = useState<LeaderBoardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBallotModalOpen, setIsBallotModalOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [expandedSpeech, setExpandedSpeech] = useState<string | null>(null);
   const supabase = createClient();
 
   const fetchLeaderboard = async () => {
@@ -106,8 +129,11 @@ const LeaderBoard: React.FC = () => {
 
     // Subscribe to real-time changes
     const channel = supabase
-      .channel('speeches-changes')
+      .channel('speeches-and-ballots-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'speeches' }, () => {
+        fetchLeaderboard();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ballots' }, () => {
         fetchLeaderboard();
       })
       .subscribe();
@@ -126,8 +152,20 @@ const LeaderBoard: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleMakeBallot = () => {
+    if (!user) {
+      alert('Please log in to submit a ballot');
+      return;
+    }
+    setIsBallotModalOpen(true);
+  };
+
   const handleModalSuccess = () => {
     fetchLeaderboard();
+  };
+
+  const toggleBallotExpansion = (speechId: string) => {
+    setExpandedSpeech(expandedSpeech === speechId ? null : speechId);
   };
 
   const podiumData: PodiumData[] = leaderboardData.slice(0, 3).map((entry, index) => ({
@@ -143,6 +181,11 @@ const LeaderBoard: React.FC = () => {
       <SpeechSubmitModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onSuccess={handleModalSuccess}
+      />
+      <BallotSubmitModal
+        isOpen={isBallotModalOpen}
+        onClose={() => setIsBallotModalOpen(false)}
         onSuccess={handleModalSuccess}
       />
       
@@ -164,6 +207,16 @@ const LeaderBoard: React.FC = () => {
             }}
           >
             New Speech
+          </button>
+          <button
+            onClick={handleMakeBallot}
+            className="px-6 py-3 rounded-lg font-normal text-base hover:opacity-90 transition-opacity"
+            style={{
+              backgroundColor: '#2C2C2C',
+              color: '#F5F5F5'
+            }}
+          >
+            Make a Ballot
           </button>
           <AuthButton />
         </div>
@@ -208,7 +261,7 @@ const LeaderBoard: React.FC = () => {
         <div className="max-w-6xl mx-auto px-4">
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             {/* Table Header - Desktop */}
-            <div className="hidden sm:grid sm:grid-cols-5">
+            <div className="hidden sm:grid sm:grid-cols-6">
               {/* Name Header */}
               <div className="bg-gray-50 rounded-l-lg px-6 py-3 flex items-center gap-2 border-r border-gray-200">
                 <span className="text-sm font-medium text-gray-600">Name</span>
@@ -230,8 +283,13 @@ const LeaderBoard: React.FC = () => {
               </div>
 
               {/* Speech URLs Header */}
-              <div className="bg-gray-50 rounded-r-lg px-6 py-3 flex items-center justify-center gap-2">
+              <div className="bg-gray-50 px-6 py-3 flex items-center justify-center gap-2 border-r border-gray-200">
                 <span className="text-sm font-medium text-gray-600">Recordings</span>
+              </div>
+
+              {/* Ballots Header */}
+              <div className="bg-gray-50 rounded-r-lg px-6 py-3 flex items-center justify-center gap-2">
+                <span className="text-sm font-medium text-gray-600">Ballots</span>
               </div>
             </div>
 
@@ -240,7 +298,7 @@ const LeaderBoard: React.FC = () => {
             {leaderboardData.map((entry, index) => (
               <div key={index} className="border-b border-gray-100 last:border-b-0">
                 {/* Desktop View */}
-                <div className="hidden sm:grid sm:grid-cols-5 items-center">
+                <div className="hidden sm:grid sm:grid-cols-6 items-start">
                   {/* Name and Avatar */}
                   <div className="px-6 py-4 flex items-center gap-3">
                     {entry.avatar_url ? (
@@ -273,13 +331,13 @@ const LeaderBoard: React.FC = () => {
                   </div>
 
                   {/* Speech URLs */}
-                  <div className="px-6 py-4 text-center">
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {entry.speech_urls && entry.speech_urls.length > 0 ? (
-                        entry.speech_urls.map((url, urlIndex) => (
+                  <div className="px-6 py-4">
+                    <div className="flex flex-col gap-2">
+                      {entry.speech_details && entry.speech_details.length > 0 ? (
+                        entry.speech_details.map((speechDetail, urlIndex) => (
                           <a
                             key={urlIndex}
-                            href={url}
+                            href={speechDetail.speech_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
@@ -287,6 +345,62 @@ const LeaderBoard: React.FC = () => {
                             Recording {urlIndex + 1}
                           </a>
                         ))
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Ballots */}
+                  <div className="px-6 py-4">
+                    <div className="flex flex-col gap-2">
+                      {entry.speech_details && entry.speech_details.length > 0 ? (
+                        entry.speech_details.map((speechDetail, speechIndex) => {
+                          const ballotCount = speechDetail.ballots?.length || 0;
+                          const speechId = speechDetail.speech_id;
+                          const isExpanded = expandedSpeech === speechId;
+                          
+                          return (
+                            <div key={speechIndex} className="text-sm">
+                              {ballotCount > 0 ? (
+                                <div>
+                                  <button
+                                    onClick={() => toggleBallotExpansion(speechId)}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline transition-colors text-left"
+                                  >
+                                    {ballotCount} ballot{ballotCount !== 1 ? 's' : ''}
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200">
+                                      {speechDetail.ballots.map((ballot, ballotIndex) => (
+                                        <div key={ballotIndex} className="text-xs text-gray-700 bg-gray-50 p-2 rounded">
+                                          <div className="font-medium mb-1">Reviewed by {ballot.reviewer_name}</div>
+                                          <div className="space-y-0.5">
+                                            <div>Gestures: {ballot.gestures}/10</div>
+                                            <div>Delivery: {ballot.delivery}/10</div>
+                                            <div>Pauses: {ballot.pauses}/10</div>
+                                            <div>Content: {ballot.content}/10</div>
+                                            <div>Entertaining: {ballot.entertaining}/10</div>
+                                            {ballot.better_than_last && (
+                                              <div className="text-green-600 font-medium">✓ Better than last</div>
+                                            )}
+                                            {ballot.feedback_text && (
+                                              <div className="mt-1 pt-1 border-t border-gray-200">
+                                                <span className="font-medium">Feedback:</span> {ballot.feedback_text}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </div>
+                          );
+                        })
                       ) : (
                         <span className="text-sm text-gray-400">—</span>
                       )}
@@ -319,21 +433,62 @@ const LeaderBoard: React.FC = () => {
                     <span>Weekly: {entry.weekly_speeches}</span>
                     <span>All Time: {entry.all_time_speeches}</span>
                   </div>
-                  {entry.speech_urls && entry.speech_urls.length > 0 && (
+                  {entry.speech_details && entry.speech_details.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-100">
                       <span className="text-xs text-gray-500 mb-1 block">Recordings:</span>
-                      <div className="flex flex-wrap gap-2">
-                        {entry.speech_urls.map((url, urlIndex) => (
-                          <a
-                            key={urlIndex}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                          >
-                            Recording {urlIndex + 1}
-                          </a>
-                        ))}
+                      <div className="space-y-2">
+                        {entry.speech_details.map((speechDetail, urlIndex) => {
+                          const ballotCount = speechDetail.ballots?.length || 0;
+                          const speechId = speechDetail.speech_id;
+                          const isExpanded = expandedSpeech === speechId;
+                          
+                          return (
+                            <div key={urlIndex} className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <a
+                                  href={speechDetail.speech_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                >
+                                  Recording {urlIndex + 1}
+                                </a>
+                                {ballotCount > 0 && (
+                                  <button
+                                    onClick={() => toggleBallotExpansion(speechId)}
+                                    className="text-xs text-gray-600 hover:text-gray-800"
+                                  >
+                                    ({ballotCount} ballot{ballotCount !== 1 ? 's' : ''})
+                                  </button>
+                                )}
+                              </div>
+                              {isExpanded && ballotCount > 0 && (
+                                <div className="mt-1 space-y-2 pl-2 border-l-2 border-gray-200">
+                                  {speechDetail.ballots.map((ballot, ballotIndex) => (
+                                    <div key={ballotIndex} className="text-xs text-gray-700 bg-gray-50 p-2 rounded">
+                                      <div className="font-medium mb-1">Reviewed by {ballot.reviewer_name}</div>
+                                      <div className="space-y-0.5">
+                                        <div>Gestures: {ballot.gestures}/10</div>
+                                        <div>Delivery: {ballot.delivery}/10</div>
+                                        <div>Pauses: {ballot.pauses}/10</div>
+                                        <div>Content: {ballot.content}/10</div>
+                                        <div>Entertaining: {ballot.entertaining}/10</div>
+                                        {ballot.better_than_last && (
+                                          <div className="text-green-600 font-medium">✓ Better than last</div>
+                                        )}
+                                        {ballot.feedback_text && (
+                                          <div className="mt-1 pt-1 border-t border-gray-200">
+                                            <span className="font-medium">Feedback:</span> {ballot.feedback_text}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
