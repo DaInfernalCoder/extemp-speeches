@@ -1,8 +1,34 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+## Installation
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18.17 or later
+- npm, yarn, pnpm, or bun package manager
+
+### Clone the Repository
+
+```bash
+git clone <repository-url>
+cd extemp-speeches
+```
+
+### Install Dependencies
+
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+# or
+bun install
+```
+
+### Run Development Server
+
+Start the development server:
 
 ```bash
 npm run dev
@@ -17,6 +43,23 @@ bun dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+### Build for Production
+
+Build the application for production:
+
+```bash
+npm run build
+npm start
+```
+
+### Lint Code
+
+Run the linter to check code quality:
+
+```bash
+npm run lint
+```
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
