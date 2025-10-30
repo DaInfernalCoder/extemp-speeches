@@ -126,19 +126,16 @@ const LeaderBoard: React.FC = () => {
             {/* Name Header */}
             <div className="flex-1 bg-gray-50 rounded-l-lg px-6 py-3 flex items-center gap-2 border-r border-gray-200">
               <span className="text-sm font-medium text-gray-600">Name</span>
-              <div className="w-4 h-4 bg-gray-400 rounded-sm flex items-center justify-center text-xs">?</div>
             </div>
 
             {/* Place Header */}
             <div className="flex-1 bg-gray-50 px-6 py-3 flex items-center justify-center gap-2 border-r border-gray-200">
               <span className="text-sm font-medium text-gray-600 capitalize">Place</span>
-              <div className="w-4 h-4 bg-gray-400 rounded-sm flex items-center justify-center text-xs">?</div>
             </div>
 
             {/* Speeches Header */}
             <div className="flex-1 bg-gray-50 rounded-r-lg px-6 py-3 flex items-center justify-center gap-2">
               <span className="text-sm font-medium text-gray-600">Speeches</span>
-              <div className="w-4 h-4 bg-gray-400 rounded-sm flex items-center justify-center text-xs">?</div>
             </div>
           </div>
 
