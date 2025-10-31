@@ -142,36 +142,36 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4"
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        className="brutal-card p-6 sm:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-semibold text-gray-800 mb-6">Feature Requests</h2>
-        
+        <h2 className="text-2xl font-extrabold mb-6" style={{ color: '#1a1a1a' }}>Feature Requests</h2>
+
         {/* Tabs */}
-        <div className="flex gap-4 border-b border-gray-200 mb-6">
+        <div className="flex gap-4 border-b-[3px] border-black mb-6">
           <button
             type="button"
             onClick={() => setActiveTab('submit')}
-            className={`pb-3 px-1 font-medium transition-colors ${
-              activeTab === 'submit'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+            className="pb-3 px-1 font-bold transition-colors"
+            style={{
+              color: activeTab === 'submit' ? 'var(--primary)' : '#666',
+              borderBottom: activeTab === 'submit' ? '3px solid var(--primary)' : 'none'
+            }}
           >
             Submit New
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('view')}
-            className={`pb-3 px-1 font-medium transition-colors ${
-              activeTab === 'view'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+            className="pb-3 px-1 font-bold transition-colors"
+            style={{
+              color: activeTab === 'view' ? 'var(--primary)' : '#666',
+              borderBottom: activeTab === 'view' ? '3px solid var(--primary)' : 'none'
+            }}
           >
             View All
           </button>
@@ -183,7 +183,7 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
             <form onSubmit={handleSubmit}>
           {/* Title Input */}
           <div className="mb-6">
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="title" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
               Title
             </label>
             <input
@@ -193,35 +193,43 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Brief description of your feature request"
               maxLength={200}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+              className="w-full px-4 py-2 brutal-border rounded-lg text-sm"
+              style={{
+                color: '#1a1a1a',
+                backgroundColor: '#ffffff'
+              }}
               required
               disabled={loading}
             />
-            <p className="mt-1 text-xs text-gray-500">{title.length}/200 characters</p>
+            <p className="mt-1 text-xs font-medium" style={{ color: '#666' }}>{title.length}/200 characters</p>
           </div>
 
           {/* Description Textarea */}
           <div className="mb-6">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="description" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
               Description
             </label>
             <textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Provide details about the feature you&apos;d like to see..."
+              placeholder="Provide details about the feature you'd like to see..."
               rows={6}
               maxLength={5000}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 resize-y min-h-[120px]"
+              className="w-full px-4 py-3 brutal-border rounded-lg text-sm resize-y min-h-[120px]"
+              style={{
+                color: '#1a1a1a',
+                backgroundColor: '#ffffff'
+              }}
               required
               disabled={loading}
             />
-            <p className="mt-1 text-xs text-gray-500">{description.length}/5000 characters</p>
+            <p className="mt-1 text-xs font-medium" style={{ color: '#666' }}>{description.length}/5000 characters</p>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-4 p-3 brutal-border rounded-lg" style={{ backgroundColor: '#FFE5E5' }}>
+              <p className="text-sm font-bold" style={{ color: 'var(--error)' }}>{error}</p>
             </div>
           )}
 
@@ -230,10 +238,9 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
                   type="button"
                   onClick={handleClose}
                   disabled={loading}
-                  className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="brutal-button px-6 py-2 text-base disabled:opacity-50 bg-white"
                   style={{
-                    backgroundColor: '#E5E5E5',
-                    color: '#2C2C2C'
+                    color: '#1a1a1a'
                   }}
                 >
                   Cancel
@@ -241,10 +248,10 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="brutal-button px-6 py-2 text-base disabled:opacity-50"
                   style={{
-                    backgroundColor: '#2C2C2C',
-                    color: '#F5F5F5'
+                    backgroundColor: 'var(--secondary)',
+                    color: '#1a1a1a'
                   }}
                 >
                   {loading ? 'Submitting...' : 'Submit Request'}
@@ -255,32 +262,32 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
             <div className="space-y-4">
               {loadingRequests ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-500">Loading feature requests...</p>
+                  <p className="text-sm font-medium" style={{ color: '#666' }}>Loading feature requests...</p>
                 </div>
               ) : featureRequests.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-500">No feature requests yet. Be the first to submit one!</p>
+                  <p className="text-sm font-medium" style={{ color: '#666' }}>No feature requests yet. Be the first to submit one!</p>
                 </div>
               ) : (
                 featureRequests.map((request) => (
                   <div
                     key={request.id}
-                    className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                    className="brutal-card p-4"
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-lg font-semibold text-gray-800">
+                      <h3 className="text-lg font-extrabold" style={{ color: '#1a1a1a' }}>
                         {request.title}
                       </h3>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3 whitespace-pre-wrap">
+                    <p className="text-sm mb-3 whitespace-pre-wrap" style={{ color: '#1a1a1a' }}>
                       {request.description}
                     </p>
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="flex items-center gap-4 text-xs font-medium" style={{ color: '#666' }}>
                       <span>
-                        <strong>Submitted by:</strong> {request.user.name || request.user.email}
+                        <strong style={{ color: '#1a1a1a' }}>Submitted by:</strong> {request.user.name || request.user.email}
                       </span>
                       <span>
-                        <strong>Date:</strong>{' '}
+                        <strong style={{ color: '#1a1a1a' }}>Date:</strong>{' '}
                         {new Date(request.created_at).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',
@@ -291,15 +298,14 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
                   </div>
                 ))
               )}
-              
-              <div className="flex justify-end pt-4 border-t border-gray-200 mt-6">
+
+              <div className="flex justify-end pt-4 border-t-[3px] border-black mt-6">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity"
+                  className="brutal-button px-6 py-2 text-base bg-white"
                   style={{
-                    backgroundColor: '#E5E5E5',
-                    color: '#2C2C2C'
+                    color: '#1a1a1a'
                   }}
                 >
                   Close

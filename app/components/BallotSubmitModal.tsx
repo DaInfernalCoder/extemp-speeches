@@ -139,14 +139,14 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4"
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className="brutal-card p-6 sm:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-semibold text-gray-800 mb-6">Submit Ballot</h2>
+        <h2 className="text-2xl font-extrabold mb-6" style={{ color: '#1a1a1a' }}>Submit Ballot</h2>
         
         {loadingSpeeches ? (
           <div className="flex justify-center items-center py-8">
@@ -156,7 +156,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
           <form onSubmit={handleSubmit}>
             {/* Speech Selection */}
             <div className="mb-6">
-              <label htmlFor="speech-select" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="speech-select" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
                 Select Speech to Review
               </label>
               <select
@@ -166,7 +166,11 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                   setSelectedSpeechId(e.target.value);
                   setBetterThanLast(false); // Reset checkbox when changing speech
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+                className="w-full px-4 py-2 brutal-border rounded-lg text-sm"
+                style={{
+                  color: '#1a1a1a',
+                  backgroundColor: '#ffffff'
+                }}
                 required
                 disabled={loading}
               >
@@ -181,11 +185,11 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
 
             {/* Rating Criteria */}
             <div className="space-y-4 mb-6">
-              <h3 className="text-lg font-medium text-gray-800 mb-3">Rate Each Criteria (1-10)</h3>
+              <h3 className="text-lg font-extrabold mb-3" style={{ color: '#1a1a1a' }}>Rate Each Criteria (1-10)</h3>
               
               {/* Gestures */}
               <div>
-                <label htmlFor="gestures" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="gestures" className="block text-sm font-bold mb-1" style={{ color: '#1a1a1a' }}>
                   Gestures: {gestures}
                 </label>
                 <input
@@ -202,7 +206,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
 
               {/* Delivery */}
               <div>
-                <label htmlFor="delivery" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="delivery" className="block text-sm font-bold mb-1" style={{ color: '#1a1a1a' }}>
                   Delivery: {delivery}
                 </label>
                 <input
@@ -219,7 +223,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
 
               {/* Pauses */}
               <div>
-                <label htmlFor="pauses" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="pauses" className="block text-sm font-bold mb-1" style={{ color: '#1a1a1a' }}>
                   Pauses: {pauses}
                 </label>
                 <input
@@ -236,7 +240,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
 
               {/* Content */}
               <div>
-                <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="content" className="block text-sm font-bold mb-1" style={{ color: '#1a1a1a' }}>
                   Content: {content}
                 </label>
                 <input
@@ -253,7 +257,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
 
               {/* Entertaining */}
               <div>
-                <label htmlFor="entertaining" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="entertaining" className="block text-sm font-bold mb-1" style={{ color: '#1a1a1a' }}>
                   Entertaining: {entertaining}
                 </label>
                 <input
@@ -271,7 +275,7 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
 
             {/* Feedback Text */}
             <div className="mb-6">
-              <label htmlFor="feedback" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="feedback" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
                 Feedback (Optional)
               </label>
               <textarea
@@ -280,7 +284,11 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                 onChange={(e) => setFeedbackText(e.target.value)}
                 placeholder="Share your thoughts on this speech..."
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 resize-y min-h-[80px]"
+                className="w-full px-4 py-3 brutal-border rounded-lg text-sm resize-y min-h-[80px]"
+                style={{
+                  color: '#1a1a1a',
+                  backgroundColor: '#ffffff'
+                }}
                 disabled={loading}
               />
             </div>
@@ -293,10 +301,13 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                     type="checkbox"
                     checked={betterThanLast}
                     onChange={(e) => setBetterThanLast(e.target.checked)}
-                    className="w-6 h-6 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    className="w-6 h-6 rounded brutal-border cursor-pointer"
+                    style={{
+                      accentColor: 'var(--primary)'
+                    }}
                     disabled={loading}
                   />
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-bold" style={{ color: '#1a1a1a' }}>
                     Better than their last recording
                   </span>
                 </label>
@@ -304,8 +315,8 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
             )}
 
             {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="mb-4 p-3 brutal-border rounded-lg" style={{ backgroundColor: '#FFE5E5' }}>
+                <p className="text-sm font-bold" style={{ color: 'var(--error)' }}>{error}</p>
               </div>
             )}
 
@@ -314,10 +325,9 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                 type="button"
                 onClick={handleClose}
                 disabled={loading}
-                className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="brutal-button px-6 py-2 text-base disabled:opacity-50 bg-white"
                 style={{
-                  backgroundColor: '#E5E5E5',
-                  color: '#2C2C2C'
+                  color: '#1a1a1a'
                 }}
               >
                 Cancel
@@ -325,10 +335,10 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
               <button
                 type="submit"
                 disabled={loading}
-                className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
+                className="brutal-button px-6 py-2 text-base disabled:opacity-50"
                 style={{
-                  backgroundColor: '#2C2C2C',
-                  color: '#F5F5F5'
+                  backgroundColor: 'var(--secondary)',
+                  color: '#1a1a1a'
                 }}
               >
                 {loading ? 'Submitting...' : 'Submit Ballot'}

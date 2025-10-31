@@ -51,10 +51,9 @@ export default function AuthButton() {
     return (
       <button
         disabled
-        className="px-6 py-3 rounded-lg font-normal text-base opacity-50 cursor-not-allowed"
+        className="brutal-button px-6 py-3 text-base opacity-50 cursor-not-allowed bg-gray-200"
         style={{
-          backgroundColor: '#2C2C2C',
-          color: '#F5F5F5'
+          color: '#1a1a1a'
         }}
       >
         Loading...
@@ -66,10 +65,10 @@ export default function AuthButton() {
     return (
       <button
         onClick={handleSignOut}
-        className="px-6 py-3 rounded-lg font-normal text-base hover:opacity-90 transition-opacity"
+        className="brutal-button px-6 py-3 text-base"
         style={{
-          backgroundColor: '#2C2C2C',
-          color: '#F5F5F5'
+          backgroundColor: 'var(--accent-pink)',
+          color: '#1a1a1a'
         }}
       >
         Sign Out
@@ -80,10 +79,10 @@ export default function AuthButton() {
   return (
     <button
       onClick={handleSignIn}
-      className="px-6 py-3 rounded-lg font-normal text-base hover:opacity-90 transition-opacity"
+      className="brutal-button px-6 py-3 text-base"
       style={{
-        backgroundColor: '#2C2C2C',
-        color: '#F5F5F5'
+        backgroundColor: 'var(--accent-teal)',
+        color: '#1a1a1a'
       }}
     >
       Log In

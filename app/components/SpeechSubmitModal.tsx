@@ -351,14 +351,14 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className="brutal-card p-6 sm:p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Submit New Speech</h2>
+        <h2 className="text-2xl font-extrabold mb-4" style={{ color: '#1a1a1a' }}>Submit New Speech</h2>
         
         {/* Submission Type Tabs */}
         <div className="flex gap-2 mb-6">
@@ -366,10 +366,11 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             type="button"
             onClick={() => setSubmissionType('video')}
             disabled={loading}
-            className="flex-1 px-3 py-3 rounded-lg font-medium text-xs transition-all disabled:opacity-50 active:scale-95"
+            className="flex-1 px-3 py-3 brutal-border rounded-lg font-bold text-xs transition-all disabled:opacity-50"
             style={{
-              backgroundColor: submissionType === 'video' ? '#2C2C2C' : '#E5E5E5',
-              color: submissionType === 'video' ? '#F5F5F5' : '#2C2C2C'
+              backgroundColor: submissionType === 'video' ? 'var(--primary)' : '#ffffff',
+              color: submissionType === 'video' ? '#ffffff' : '#1a1a1a',
+              boxShadow: submissionType === 'video' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
             }}
           >
             Upload Video
@@ -378,10 +379,11 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             type="button"
             onClick={() => setSubmissionType('youtube-link')}
             disabled={loading}
-            className="flex-1 px-3 py-3 rounded-lg font-medium text-xs transition-all disabled:opacity-50 active:scale-95"
+            className="flex-1 px-3 py-3 brutal-border rounded-lg font-bold text-xs transition-all disabled:opacity-50"
             style={{
-              backgroundColor: submissionType === 'youtube-link' ? '#2C2C2C' : '#E5E5E5',
-              color: submissionType === 'youtube-link' ? '#F5F5F5' : '#2C2C2C'
+              backgroundColor: submissionType === 'youtube-link' ? 'var(--primary)' : '#ffffff',
+              color: submissionType === 'youtube-link' ? '#ffffff' : '#1a1a1a',
+              boxShadow: submissionType === 'youtube-link' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
             }}
           >
             YouTube Link
@@ -390,10 +392,11 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             type="button"
             onClick={() => setSubmissionType('audio')}
             disabled={loading}
-            className="flex-1 px-3 py-3 rounded-lg font-medium text-xs transition-all disabled:opacity-50 active:scale-95"
+            className="flex-1 px-3 py-3 brutal-border rounded-lg font-bold text-xs transition-all disabled:opacity-50"
             style={{
-              backgroundColor: submissionType === 'audio' ? '#2C2C2C' : '#E5E5E5',
-              color: submissionType === 'audio' ? '#F5F5F5' : '#2C2C2C'
+              backgroundColor: submissionType === 'audio' ? 'var(--primary)' : '#ffffff',
+              color: submissionType === 'audio' ? '#ffffff' : '#1a1a1a',
+              boxShadow: submissionType === 'audio' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
             }}
           >
             Upload Audio
@@ -403,7 +406,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         <form onSubmit={handleSubmit}>
           {submissionType === 'video' ? (
             <div className="mb-4">
-              <label htmlFor="video-file" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="video-file" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
                 Video File
               </label>
               <input
@@ -411,28 +414,35 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 type="file"
                 accept="video/*"
                 onChange={handleVideoFileChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-base file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 active:file:bg-gray-300 cursor-pointer"
+                className="w-full px-4 py-3 brutal-border rounded-lg text-sm cursor-pointer file:mr-4 file:py-2 file:px-4 file:brutal-border file:rounded-md file:text-sm file:font-bold file:bg-white file:cursor-pointer"
+                style={{
+                  color: '#1a1a1a',
+                  backgroundColor: '#ffffff'
+                }}
                 required
                 disabled={loading}
               />
               {videoFile && (
-                <p className="text-xs text-gray-600 mt-2">
+                <p className="text-xs font-medium mt-2" style={{ color: '#1a1a1a' }}>
                   Selected: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs mt-1" style={{ color: '#666' }}>
                 Maximum file size: 1.5 GB. Video will be uploaded to YouTube as unlisted.
               </p>
-              
+
               {uploadProgress > 0 && uploadProgress < 100 && (
                 <div className="mt-3">
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="w-full bg-white brutal-border rounded-lg h-4 overflow-hidden">
                     <div
-                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
+                      className="h-full transition-all duration-300"
+                      style={{
+                        width: `${uploadProgress}%`,
+                        backgroundColor: 'var(--primary)'
+                      }}
                     ></div>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1 text-center">
+                  <p className="text-xs font-bold mt-1 text-center" style={{ color: '#1a1a1a' }}>
                     {uploadProgress < 50 ? 'Uploading video to YouTube (this may take a while for large files)...' : uploadProgress < 70 ? 'Processing upload...' : 'Submitting speech...'} {uploadProgress}%
                   </p>
                 </div>
@@ -440,7 +450,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             </div>
           ) : submissionType === 'youtube-link' ? (
             <div className="mb-4">
-              <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="youtube-url" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
                 YouTube URL
               </label>
               <input
@@ -449,29 +459,36 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 value={youtubeUrl}
                 onChange={handleYoutubeUrlChange}
                 placeholder="https://www.youtube.com/watch?v=..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+                className="w-full px-4 py-3 brutal-border rounded-lg text-sm"
+                style={{
+                  color: '#1a1a1a',
+                  backgroundColor: '#ffffff'
+                }}
                 required
                 disabled={loading}
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs mt-1" style={{ color: '#666' }}>
                 Paste a YouTube link to an existing video (e.g., https://www.youtube.com/watch?v=... or https://youtu.be/...)
               </p>
-              
+
               {uploadProgress > 0 && uploadProgress < 100 && (
                 <div className="mt-3">
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="w-full bg-white brutal-border rounded-lg h-4 overflow-hidden">
                     <div
-                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
+                      className="h-full transition-all duration-300"
+                      style={{
+                        width: `${uploadProgress}%`,
+                        backgroundColor: 'var(--primary)'
+                      }}
                     ></div>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1 text-center">Submitting speech... {uploadProgress}%</p>
+                  <p className="text-xs font-bold mt-1 text-center" style={{ color: '#1a1a1a' }}>Submitting speech... {uploadProgress}%</p>
                 </div>
               )}
             </div>
           ) : (
             <div className="mb-4">
-              <label htmlFor="audio-file" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="audio-file" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
                 Audio File
               </label>
               <input
@@ -479,36 +496,43 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 type="file"
                 accept="audio/*"
                 onChange={handleAudioFileChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-base file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 active:file:bg-gray-300 cursor-pointer"
+                className="w-full px-4 py-3 brutal-border rounded-lg text-sm cursor-pointer file:mr-4 file:py-2 file:px-4 file:brutal-border file:rounded-md file:text-sm file:font-bold file:bg-white file:cursor-pointer"
+                style={{
+                  color: '#1a1a1a',
+                  backgroundColor: '#ffffff'
+                }}
                 required
                 disabled={loading}
               />
               {audioFile && (
-                <p className="text-xs text-gray-600 mt-2">
+                <p className="text-xs font-medium mt-2" style={{ color: '#1a1a1a' }}>
                   Selected: {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs mt-1" style={{ color: '#666' }}>
                 Maximum file size: 50 MB. Supported formats: MP3, M4A, WAV, etc.
               </p>
-              
+
               {uploadProgress > 0 && uploadProgress < 100 && (
                 <div className="mt-3">
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="w-full bg-white brutal-border rounded-lg h-4 overflow-hidden">
                     <div
-                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
+                      className="h-full transition-all duration-300"
+                      style={{
+                        width: `${uploadProgress}%`,
+                        backgroundColor: 'var(--primary)'
+                      }}
                     ></div>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1 text-center">Uploading... {uploadProgress}%</p>
+                  <p className="text-xs font-bold mt-1 text-center" style={{ color: '#1a1a1a' }}>Uploading... {uploadProgress}%</p>
                 </div>
               )}
             </div>
           )}
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-4 p-3 brutal-border rounded-lg" style={{ backgroundColor: '#FFE5E5' }}>
+              <p className="text-sm font-bold" style={{ color: 'var(--error)' }}>{error}</p>
             </div>
           )}
 
@@ -517,10 +541,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
               type="button"
               onClick={handleClose}
               disabled={loading}
-              className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="brutal-button px-6 py-2 text-base disabled:opacity-50 bg-white"
               style={{
-                backgroundColor: '#E5E5E5',
-                color: '#2C2C2C'
+                color: '#1a1a1a'
               }}
             >
               Cancel
@@ -528,10 +551,10 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="brutal-button px-6 py-2 text-base disabled:opacity-50"
               style={{
-                backgroundColor: '#2C2C2C',
-                color: '#F5F5F5'
+                backgroundColor: 'var(--secondary)',
+                color: '#1a1a1a'
               }}
             >
               {loading ? 'Submitting...' : 'Submit'}
