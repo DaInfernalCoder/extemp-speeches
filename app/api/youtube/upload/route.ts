@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import type { OAuth2Client } from 'google-auth-library';
 
 // Disable body parser for this route to handle large files
 export const runtime = 'nodejs';
@@ -8,7 +9,7 @@ export const maxDuration = 300; // 5 minutes for large uploads
 
 // Helper function to refresh OAuth token
 async function refreshAccessToken(
-  oauth2Client: ReturnType<typeof google.auth.OAuth2>,
+  oauth2Client: OAuth2Client,
   refreshToken: string
 ): Promise<string> {
   oauth2Client.setCredentials({
