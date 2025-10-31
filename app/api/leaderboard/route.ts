@@ -110,6 +110,7 @@ export async function GET() {
         stats.speech_details.push({
           speech_id: speech.id,
           speech_url: speech.speech_url,
+          user_id: speech.user_id,
           ballots: ballotsWithReviewers,
         });
       });

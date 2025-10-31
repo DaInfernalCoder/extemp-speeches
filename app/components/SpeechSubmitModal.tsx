@@ -522,6 +522,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                   <p className="text-xs font-bold mt-1 text-center" style={{ color: '#1a1a1a' }}>
                     {uploadProgress < 50 ? 'Uploading video to Cloudflare Stream (this may take a while for large files)...' : uploadProgress < 70 ? 'Processing upload...' : 'Submitting speech...'} {uploadProgress}%
                   </p>
+                  <p className="text-xs mt-2 text-center" style={{ color: '#666' }}>
+                    You can leave this tab open - the upload will continue in the background
+                  </p>
                 </div>
               )}
             </div>

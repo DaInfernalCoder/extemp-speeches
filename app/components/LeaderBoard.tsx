@@ -26,6 +26,7 @@ interface Ballot {
 interface SpeechDetails {
   speech_id: string;
   speech_url: string;
+  user_id: string;
   ballots: Ballot[];
 }
 
@@ -264,6 +265,30 @@ const LeaderBoard: React.FC = () => {
     setIsBallotViewModalOpen(true);
   };
 
+  const handleDeleteSpeech = async (speechId: string) => {
+    if (!confirm('Are you sure you want to delete this recording? This will also delete any ballots associated with it.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/speeches/${speechId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(`Failed to delete speech: ${data.error || 'Unknown error'}`);
+        return;
+      }
+
+      // Refresh the leaderboard after successful deletion
+      fetchLeaderboard();
+    } catch (error) {
+      console.error('Error deleting speech:', error);
+      alert('Failed to delete speech. Please try again.');
+    }
+  };
+
   const podiumData: PodiumData[] = leaderboardData.slice(0, 3).map((entry, index) => ({
     name: entry.name,
     place: entry.place,
@@ -480,16 +505,28 @@ const LeaderBoard: React.FC = () => {
                     <div className="flex flex-col items-center gap-2">
                       {entry.speech_details && entry.speech_details.length > 0 ? (
                         entry.speech_details.map((speechDetail, urlIndex) => (
-                          <a
-                            key={urlIndex}
-                            href={speechDetail.speech_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm leading-normal inline-block align-baseline font-bold hover:underline transition-colors"
-                            style={{ color: 'var(--primary)' }}
-                          >
-                            Recording {urlIndex + 1}
-                          </a>
+                          <div key={urlIndex} className="flex items-center gap-2">
+                            <a
+                              href={speechDetail.speech_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm leading-normal inline-block align-baseline font-bold hover:underline transition-colors"
+                              style={{ color: 'var(--primary)' }}
+                            >
+                              Recording {urlIndex + 1}
+                            </a>
+                            {user && user.id === speechDetail.user_id && (
+                              <button
+                                onClick={() => handleDeleteSpeech(speechDetail.speech_id)}
+                                className="flex items-center justify-center w-5 h-5 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
+                                style={{ boxShadow: '2px 2px 0px #000' }}
+                                title="Delete recording"
+                                aria-label="Delete recording"
+                              >
+                                <span className="text-white text-xs font-bold leading-none">×</span>
+                              </button>
+                            )}
+                          </div>
                         ))
                       ) : (
                         <span className="text-sm text-gray-400">—</span>
@@ -575,6 +612,17 @@ const LeaderBoard: React.FC = () => {
                                 >
                                   Recording {urlIndex + 1}
                                 </a>
+                                {user && user.id === speechDetail.user_id && (
+                                  <button
+                                    onClick={() => handleDeleteSpeech(speechDetail.speech_id)}
+                                    className="flex items-center justify-center w-4 h-4 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
+                                    style={{ boxShadow: '1px 1px 0px #000' }}
+                                    title="Delete recording"
+                                    aria-label="Delete recording"
+                                  >
+                                    <span className="text-white text-xs font-bold leading-none">×</span>
+                                  </button>
+                                )}
                                 {ballotCount > 0 && (
                                   <button
                                     onClick={() => openBallotViewModal(speechDetail.ballots)}
