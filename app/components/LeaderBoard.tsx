@@ -110,7 +110,7 @@ const LeaderBoard: React.FC = () => {
   const [updatingPreferences, setUpdatingPreferences] = useState(false);
   const supabase = createClient();
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = useCallback(async () => {
     try {
       const response = await fetch('/api/leaderboard');
       const result = await response.json();
@@ -122,7 +122,7 @@ const LeaderBoard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const fetchEmailPreferences = useCallback(async () => {
     if (!user) return;
@@ -166,13 +166,11 @@ const LeaderBoard: React.FC = () => {
     }
   };
 
+  // Separate effect for auth and email preferences
   useEffect(() => {
     // Get initial user
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => {
       setUser(user);
-      if (user) {
-        fetchEmailPreferences();
-      }
     });
 
     // Listen for auth changes
@@ -181,13 +179,25 @@ const LeaderBoard: React.FC = () => {
       session: Session | null
     ) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchEmailPreferences();
-      } else {
+      if (!session?.user) {
         setEmailRemindersEnabled(true);
       }
     });
 
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  // Fetch email preferences when user changes
+  useEffect(() => {
+    if (user) {
+      fetchEmailPreferences();
+    }
+  }, [user, fetchEmailPreferences]);
+
+  // Set up leaderboard fetching and real-time subscriptions
+  useEffect(() => {
     fetchLeaderboard();
 
     // Subscribe to real-time changes
@@ -202,10 +212,9 @@ const LeaderBoard: React.FC = () => {
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
-  }, [supabase, fetchEmailPreferences]);
+  }, [supabase, fetchLeaderboard]);
 
   const handleNewSpeech = () => {
     if (!user) {
