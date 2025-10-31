@@ -131,6 +131,65 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     }
   };
 
+  // Helper function to upload with XMLHttpRequest for real progress tracking
+  const uploadWithProgress = (
+    url: string,
+    formData: FormData | null,
+    jsonData: object | null,
+    onProgress: (progress: number) => void,
+    headers?: Record<string, string>
+  ): Promise<Response> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      // Track real upload progress
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          // Simulate a Response object
+          const response = new Response(xhr.responseText, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: new Headers({ 'content-type': 'application/json' }),
+          });
+          resolve(response);
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      xhr.onabort = () => reject(new Error('Upload aborted'));
+
+      xhr.open('POST', url);
+
+      // Set custom headers if provided
+      if (headers) {
+        Object.entries(headers).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, value);
+        });
+      }
+
+      // Add credentials
+      xhr.withCredentials = true;
+
+      if (jsonData) {
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify(jsonData));
+      } else if (formData) {
+        xhr.send(formData);
+      } else {
+        xhr.send();
+      }
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -218,15 +277,20 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           const videoUid = initData.uid; // For direct uploads, UID is provided immediately
 
           if (uploadType === 'direct' && videoUid) {
-            // Direct upload for files <=200MB
-            // Upload file using POST
+            // Direct upload for files <=200MB with real progress tracking
             const formData = new FormData();
             formData.append('file', fileToUpload);
 
-            const uploadResponse = await fetch(uploadUrl, {
-              method: 'POST',
-              body: formData,
-            });
+            const uploadResponse = await uploadWithProgress(
+              uploadUrl,
+              formData,
+              null,
+              (progress) => {
+                // Scale progress from 10-90% during upload
+                const scaledProgress = 10 + Math.floor((progress / 100) * 80);
+                setUploadProgress(scaledProgress);
+              }
+            );
 
             if (!uploadResponse.ok) {
               throw new Error('Failed to upload video to Cloudflare Stream');
@@ -303,7 +367,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           return;
         }
       } else if (submissionType === 'audio') {
-        // Submit audio file
+        // Submit audio file with real progress tracking
         if (!audioFile) {
           setError('Please select an audio file');
           setLoading(false);
@@ -321,14 +385,12 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         const formData = new FormData();
         formData.append('audio_file', audioFile);
 
-        // Simulate upload progress
-        setUploadProgress(30);
-
-        response = await fetch('/api/speeches/submit', {
-          method: 'POST',
-          credentials: 'include',
-          body: formData,
-        });
+        response = await uploadWithProgress(
+          '/api/speeches/submit',
+          formData,
+          null,
+          (progress) => setUploadProgress(progress)
+        );
 
         setUploadProgress(100);
       } else {
@@ -348,14 +410,12 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
         setUploadProgress(50);
 
-        response = await fetch('/api/speeches/submit', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ speech_url: youtubeUrl.trim() }),
-        });
+        response = await uploadWithProgress(
+          '/api/speeches/submit',
+          null,
+          { speech_url: youtubeUrl.trim() },
+          (progress) => setUploadProgress(progress)
+        );
 
         setUploadProgress(100);
       }

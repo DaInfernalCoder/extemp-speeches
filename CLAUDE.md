@@ -2,6 +2,8 @@
 
 IMPORTANT: always update claude.md if necessary if something changes and certain parts become out of date because of your changes
 
+to test out if it works, try 
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
