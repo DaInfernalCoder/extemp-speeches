@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import * as tus from 'tus-js-client';
 import { createClient } from '@/lib/supabase/client';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 interface SpeechSubmitModalProps {
   isOpen: boolean;
@@ -11,6 +13,7 @@ interface SpeechSubmitModalProps {
 }
 
 type SubmissionType = 'video' | 'audio' | 'youtube-link';
+type CompressionQuality = 'high' | 'medium' | 'low' | 'none';
 
 export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: SpeechSubmitModalProps) {
   const [submissionType, setSubmissionType] = useState<SubmissionType>('video');
@@ -19,7 +22,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [compressionQuality] = useState<CompressionQuality>('medium');
   const [error, setError] = useState('');
+  const ffmpegRef = useRef<FFmpeg | null>(null);
   const supabase = createClient();
 
   // Validate YouTube URL format
@@ -29,6 +34,101 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       /^https?:\/\/youtu\.be\/[\w-]+/,
     ];
     return patterns.some(pattern => pattern.test(url));
+  };
+
+  // Initialize FFmpeg if not already initialized
+  const initFFmpeg = async () => {
+    if (ffmpegRef.current) {
+      return ffmpegRef.current;
+    }
+
+    const ffmpeg = new FFmpeg();
+    ffmpegRef.current = ffmpeg;
+
+    ffmpeg.on('log', ({ message }) => {
+      console.log('[FFmpeg]', message);
+    });
+
+    ffmpeg.on('progress', () => {
+      // Compression progress tracking (currently not displayed in UI)
+    });
+
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+
+    return ffmpeg;
+  };
+
+  // Compress video using FFmpeg
+  const compressVideo = async (file: File, quality: CompressionQuality): Promise<File> => {
+    if (quality === 'none') {
+      return file;
+    }
+
+    try {
+      const ffmpeg = await initFFmpeg();
+      
+      // Quality settings for different compression levels
+      const qualitySettings = {
+        high: {
+          crf: '23', // Good quality, moderate compression
+          preset: 'medium',
+        },
+        medium: {
+          crf: '28', // Balanced quality and file size
+          preset: 'fast',
+        },
+        low: {
+          crf: '32', // Lower quality, high compression
+          preset: 'veryfast',
+        },
+      };
+
+      const settings = qualitySettings[quality];
+
+      // Write input file to FFmpeg
+      await ffmpeg.writeFile('input.mp4', await fetchFile(file));
+
+      // Compress video using H.264 codec
+      await ffmpeg.exec([
+        '-i', 'input.mp4',
+        '-c:v', 'libx264',
+        '-crf', settings.crf,
+        '-preset', settings.preset,
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
+        'output.mp4',
+      ]);
+
+      // Read compressed file
+      const data = await ffmpeg.readFile('output.mp4');
+
+      // Clean up
+      await ffmpeg.deleteFile('input.mp4');
+      await ffmpeg.deleteFile('output.mp4');
+
+      // Create new File object with compressed data
+      // Convert FileData to Blob-compatible format by copying to a new Uint8Array
+      // This ensures we have a proper ArrayBuffer instead of ArrayBufferLike
+      const dataArray = data instanceof Uint8Array
+        ? Uint8Array.from(data)
+        : new TextEncoder().encode(String(data));
+      const blob = new Blob([dataArray], { type: 'video/mp4' });
+      const compressedFile = new File(
+        [blob],
+        file.name.replace(/\.[^/.]+$/, '') + '.mp4',
+        { type: 'video/mp4' }
+      );
+
+      return compressedFile;
+    } catch (err) {
+      console.error('Compression error:', err);
+      throw new Error('Failed to compress video. Please try uploading without compression.');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +166,22 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           return;
         }
 
-        // Step 1: Initialize Cloudflare Stream upload (get upload URL)
+        // Step 1: Compress video if compression is enabled
+        let fileToUpload = videoFile;
+        if (compressionQuality !== 'none') {
+          try {
+            setUploadProgress(1);
+            fileToUpload = await compressVideo(videoFile, compressionQuality);
+            console.log(`Compression complete: ${(videoFile.size / 1024 / 1024).toFixed(2)} MB → ${(fileToUpload.size / 1024 / 1024).toFixed(2)} MB`);
+          } catch (compressionError) {
+            const error = compressionError as { message?: string };
+            setError(error.message || 'Compression failed. Please try without compression.');
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Step 2: Initialize Cloudflare Stream upload (get upload URL)
         setUploadProgress(5);
 
         let initResponse;
@@ -79,9 +194,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              fileName: videoFile.name,
-              fileSize: videoFile.size,
-              fileType: videoFile.type,
+              fileName: fileToUpload.name,
+              fileSize: fileToUpload.size,
+              fileType: fileToUpload.type,
             }),
           });
 
@@ -97,7 +212,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
           setUploadProgress(10);
 
-          // Step 2: Upload file directly to Cloudflare Stream
+          // Step 3: Upload file directly to Cloudflare Stream
           const uploadUrl = initData.upload_url;
           const uploadType = initData.upload_type;
           const videoUid = initData.uid; // For direct uploads, UID is provided immediately
@@ -106,7 +221,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             // Direct upload for files <=200MB
             // Upload file using POST
             const formData = new FormData();
-            formData.append('file', videoFile);
+            formData.append('file', fileToUpload);
 
             const uploadResponse = await fetch(uploadUrl, {
               method: 'POST',
@@ -124,13 +239,13 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             // TUS resumable upload for files >200MB using tus-js-client
             // This provides automatic retry, session persistence, and resume capability
             await new Promise<void>((resolve, reject) => {
-              const tusUpload = new tus.Upload(videoFile, {
+              const tusUpload = new tus.Upload(fileToUpload, {
                 endpoint: uploadUrl,
                 retryDelays: [0, 3000, 5000, 10000, 20000], // Default retry delays with exponential backoff
                 chunkSize: 5 * 1024 * 1024, // 5MB chunks
                 metadata: {
-                  filename: videoFile.name,
-                  filetype: videoFile.type,
+                  filename: fileToUpload.name,
+                  filetype: fileToUpload.type,
                 },
                 onProgress: (bytesUploaded: number, bytesTotal: number) => {
                   // Update progress (10-90%)
