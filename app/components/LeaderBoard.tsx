@@ -458,7 +458,7 @@ const LeaderBoard: React.FC = () => {
                             href={speechDetail.speech_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                            className="text-sm leading-normal inline-block align-baseline text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                           >
                             Recording {urlIndex + 1}
                           </a>
@@ -477,11 +477,11 @@ const LeaderBoard: React.FC = () => {
                           const ballotCount = speechDetail.ballots?.length || 0;
 
                           return (
-                            <div key={speechIndex} className="text-sm">
+                            <div key={speechIndex} className="text-sm leading-normal">
                               {ballotCount > 0 ? (
                                 <button
                                   onClick={() => openBallotViewModal(speechDetail.ballots)}
-                                  className="text-blue-600 hover:text-blue-800 active:text-blue-900 transition-colors text-left py-2 px-2 -ml-2 rounded hover:bg-blue-50 active:bg-blue-100"
+                                  className="inline-block align-baseline text-blue-600 hover:text-blue-800 hover:underline transition-colors p-0 m-0"
                                 >
                                   {ballotCount} ballot{ballotCount !== 1 ? 's' : ''}
                                 </button>
@@ -547,7 +547,7 @@ const LeaderBoard: React.FC = () => {
                                 {ballotCount > 0 && (
                                   <button
                                     onClick={() => openBallotViewModal(speechDetail.ballots)}
-                                    className="text-xs text-gray-600 hover:text-gray-800 active:text-gray-900 py-2 px-2 -ml-2 rounded hover:bg-gray-50 active:bg-gray-100"
+                                    className="inline-block align-baseline text-xs text-gray-600 hover:text-gray-800 active:text-gray-900 p-0 m-0"
                                   >
                                     ({ballotCount} ballot{ballotCount !== 1 ? 's' : ''})
                                   </button>
