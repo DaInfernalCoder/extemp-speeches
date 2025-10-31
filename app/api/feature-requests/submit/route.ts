@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { sendFeatureRequestAlert } from '@/lib/resend';
 
 export async function POST(request: Request) {
   try {
@@ -65,6 +66,28 @@ export async function POST(request: Request) {
         { error: 'Failed to submit feature request' },
         { status: 500 }
       );
+    }
+
+    // Get user name for email notification
+    const { data: userData } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', user.id)
+      .single();
+
+    // Send email notification to Sumit
+    if (userData?.name && data) {
+      try {
+        await sendFeatureRequestAlert({
+          title: data.title,
+          description: data.description,
+          submitterName: userData.name,
+          submittedAt: data.created_at,
+        });
+      } catch (emailError) {
+        console.error('Error sending feature request alert:', emailError);
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json(

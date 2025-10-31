@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface FeatureRequestModalProps {
@@ -9,11 +9,27 @@ interface FeatureRequestModalProps {
   onSuccess: () => void;
 }
 
+interface FeatureRequest {
+  id: string;
+  title: string;
+  description: string;
+  created_at: string;
+  user: {
+    name: string | null;
+    email: string;
+  };
+}
+
+type Tab = 'submit' | 'view';
+
 export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: FeatureRequestModalProps) {
+  const [activeTab, setActiveTab] = useState<Tab>('submit');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [featureRequests, setFeatureRequests] = useState<FeatureRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
   const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,8 +110,33 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
 
   const handleClose = () => {
     resetForm();
+    setActiveTab('submit');
     onClose();
   };
+
+  const fetchFeatureRequests = async () => {
+    setLoadingRequests(true);
+    try {
+      const response = await fetch('/api/feature-requests');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setFeatureRequests(data.featureRequests || []);
+      } else {
+        console.error('Failed to fetch feature requests:', data.error);
+      }
+    } catch (err) {
+      console.error('Error fetching feature requests:', err);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'view') {
+      fetchFeatureRequests();
+    }
+  }, [isOpen, activeTab]);
 
   if (!isOpen) return null;
 
@@ -105,12 +146,41 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-lg shadow-xl p-6 sm:p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-2xl font-semibold text-gray-800 mb-6">Submit Feature Request</h2>
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6">Feature Requests</h2>
         
-        <form onSubmit={handleSubmit}>
+        {/* Tabs */}
+        <div className="flex gap-4 border-b border-gray-200 mb-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('submit')}
+            className={`pb-3 px-1 font-medium transition-colors ${
+              activeTab === 'submit'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Submit New
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('view')}
+            className={`pb-3 px-1 font-medium transition-colors ${
+              activeTab === 'view'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            View All
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === 'submit' ? (
+            <form onSubmit={handleSubmit}>
           {/* Title Input */}
           <div className="mb-6">
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
@@ -155,32 +225,89 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
             </div>
           )}
 
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={loading}
-              className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
-              style={{
-                backgroundColor: '#E5E5E5',
-                color: '#2C2C2C'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
-              style={{
-                backgroundColor: '#2C2C2C',
-                color: '#F5F5F5'
-              }}
-            >
-              {loading ? 'Submitting...' : 'Submit Request'}
-            </button>
-          </div>
-        </form>
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={loading}
+                  className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{
+                    backgroundColor: '#E5E5E5',
+                    color: '#2C2C2C'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{
+                    backgroundColor: '#2C2C2C',
+                    color: '#F5F5F5'
+                  }}
+                >
+                  {loading ? 'Submitting...' : 'Submit Request'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              {loadingRequests ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">Loading feature requests...</p>
+                </div>
+              ) : featureRequests.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No feature requests yet. Be the first to submit one!</p>
+                </div>
+              ) : (
+                featureRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        {request.title}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3 whitespace-pre-wrap">
+                      {request.description}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>
+                        <strong>Submitted by:</strong> {request.user.name || request.user.email}
+                      </span>
+                      <span>
+                        <strong>Date:</strong>{' '}
+                        {new Date(request.created_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+              
+              <div className="flex justify-end pt-4 border-t border-gray-200 mt-6">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-6 py-2 rounded-lg font-normal text-base hover:opacity-90 transition-opacity"
+                  style={{
+                    backgroundColor: '#E5E5E5',
+                    color: '#2C2C2C'
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

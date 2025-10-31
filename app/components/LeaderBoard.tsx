@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import AuthButton from './AuthButton';
@@ -106,6 +106,8 @@ const LeaderBoard: React.FC = () => {
   const [isBallotViewModalOpen, setIsBallotViewModalOpen] = useState(false);
   const [selectedBallots, setSelectedBallots] = useState<Ballot[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  const [emailRemindersEnabled, setEmailRemindersEnabled] = useState(true);
+  const [updatingPreferences, setUpdatingPreferences] = useState(false);
   const supabase = createClient();
 
   const fetchLeaderboard = async () => {
@@ -122,15 +124,65 @@ const LeaderBoard: React.FC = () => {
     }
   };
 
+  const fetchEmailPreferences = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/users/email-preferences');
+      if (response.ok) {
+        const data = await response.json();
+        setEmailRemindersEnabled(data.email_reminders_enabled ?? true);
+      }
+    } catch (error) {
+      console.error('Error fetching email preferences:', error);
+    }
+  }, [user]);
+
+  const handleEmailToggle = async (enabled: boolean) => {
+    if (!user) return;
+    
+    setUpdatingPreferences(true);
+    try {
+      const response = await fetch('/api/users/email-preferences', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enabled }),
+      });
+
+      if (response.ok) {
+        setEmailRemindersEnabled(enabled);
+      } else {
+        const data = await response.json();
+        console.error('Error updating email preferences:', data.error);
+        alert('Failed to update email preferences. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating email preferences:', error);
+      alert('Failed to update email preferences. Please try again.');
+    } finally {
+      setUpdatingPreferences(false);
+    }
+  };
+
   useEffect(() => {
     // Get initial user
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user);
+      if (user) {
+        fetchEmailPreferences();
+      }
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchEmailPreferences();
+      } else {
+        setEmailRemindersEnabled(true);
+      }
     });
 
     fetchLeaderboard();
@@ -150,7 +202,7 @@ const LeaderBoard: React.FC = () => {
       subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabase, fetchEmailPreferences]);
 
   const handleNewSpeech = () => {
     if (!user) {
@@ -225,7 +277,7 @@ const LeaderBoard: React.FC = () => {
         }}
       >
         {/* Top Buttons */}
-        <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 mb-8">
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 mb-8">
           <button
             onClick={handleNewSpeech}
             className="px-6 py-3 rounded-lg font-normal text-base hover:opacity-90 transition-opacity"
@@ -257,6 +309,31 @@ const LeaderBoard: React.FC = () => {
             Feature Request
           </button>
           <AuthButton />
+          
+          {/* Email Preferences Toggle */}
+          {user && (
+            <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-lg shadow-sm border border-gray-200">
+              <label htmlFor="email-reminders-toggle" className="text-sm font-medium text-gray-700 cursor-pointer">
+                Daily Reminder Emails
+              </label>
+              <button
+                id="email-reminders-toggle"
+                type="button"
+                onClick={() => handleEmailToggle(!emailRemindersEnabled)}
+                disabled={updatingPreferences}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  emailRemindersEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                } ${updatingPreferences ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                aria-label="Toggle daily reminder emails"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    emailRemindersEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
         </div>
 
         {loading && (

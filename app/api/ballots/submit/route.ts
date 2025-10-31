@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { sendBallotNotificationEmail } from '@/lib/resend';
 
 export async function POST(request: Request) {
   try {
@@ -131,6 +132,49 @@ export async function POST(request: Request) {
         { error: 'Failed to submit ballot' },
         { status: 500 }
       );
+    }
+
+    // Get speech owner details and reviewer name for email notification
+    const { data: speechOwner } = await supabase
+      .from('users')
+      .select('email, name')
+      .eq('id', speech.user_id)
+      .single();
+
+    const { data: reviewer } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', user.id)
+      .single();
+
+    const { data: speechDetails } = await supabase
+      .from('speeches')
+      .select('speech_url')
+      .eq('id', speech_id)
+      .single();
+
+    // Send email notification to speech owner
+    if (speechOwner?.email && reviewer?.name && speechDetails?.speech_url) {
+      try {
+        await sendBallotNotificationEmail(
+          speechOwner.email,
+          speechOwner.name || 'Speaker',
+          {
+            reviewerName: reviewer.name,
+            gestures,
+            delivery,
+            pauses,
+            content,
+            entertaining,
+            betterThanLast: better_than_last || false,
+            feedbackText: feedback_text || null,
+            speechUrl: speechDetails.speech_url,
+          }
+        );
+      } catch (emailError) {
+        console.error('Error sending ballot notification email:', emailError);
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json(

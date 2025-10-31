@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { sendSpeechSubmissionAlert } from '@/lib/resend';
 
 // Helper function to get the Monday of the current week
 function getWeekStartDate(date: Date): string {
@@ -150,6 +151,27 @@ export async function POST(request: Request) {
         { error: 'Failed to submit speech' },
         { status: 500 }
       );
+    }
+
+    // Get user name for email notification
+    const { data: userData } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', user.id)
+      .single();
+
+    // Send email notification to Arnav and Sumit
+    if (userData?.name) {
+      try {
+        await sendSpeechSubmissionAlert({
+          speakerName: userData.name,
+          speechUrl: speechUrl,
+          submittedAt: new Date().toISOString(),
+        });
+      } catch (emailError) {
+        console.error('Error sending speech submission alert:', emailError);
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json(
