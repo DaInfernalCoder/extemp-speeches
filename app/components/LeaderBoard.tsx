@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import AuthButton from './AuthButton';
@@ -108,17 +108,26 @@ const LeaderBoard: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [emailRemindersEnabled, setEmailRemindersEnabled] = useState(true);
   const [updatingPreferences, setUpdatingPreferences] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchLeaderboard = useCallback(async () => {
     try {
       const response = await fetch('/api/leaderboard');
+      if (!response.ok) {
+        console.error('Failed to fetch leaderboard:', response.status, response.statusText);
+        setLoading(false);
+        return;
+      }
       const result = await response.json();
       if (result.data) {
         setLeaderboardData(result.data);
+      } else {
+        console.warn('Leaderboard response missing data:', result);
+        setLeaderboardData([]);
       }
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
+      setLeaderboardData([]);
     } finally {
       setLoading(false);
     }
@@ -198,6 +207,7 @@ const LeaderBoard: React.FC = () => {
 
   // Set up leaderboard fetching and real-time subscriptions
   useEffect(() => {
+    // Fetch leaderboard immediately
     fetchLeaderboard();
 
     // Subscribe to real-time changes
