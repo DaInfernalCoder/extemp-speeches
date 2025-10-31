@@ -9,27 +9,25 @@ interface SpeechSubmitModalProps {
   onSuccess: () => void;
 }
 
-type SubmissionType = 'video' | 'audio' | 'stream-link';
+type SubmissionType = 'video' | 'audio' | 'youtube-link';
 
 export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: SpeechSubmitModalProps) {
   const [submissionType, setSubmissionType] = useState<SubmissionType>('video');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [streamUrl, setStreamUrl] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const supabase = createClient();
 
-  // Validate Cloudflare Stream URL format
-  const isValidCloudflareStreamUrl = (url: string): boolean => {
-    // Accept Cloudflare Stream URLs or video UIDs
+  // Validate YouTube URL format
+  const isValidYouTubeUrl = (url: string): boolean => {
     const patterns = [
-      /^https?:\/\/.*\.cloudflarestream\.com\/[\w-]+\/watch/,
-      /^https?:\/\/.*\.videodelivery\.net\/[\w-]+/,
-      /^[\w-]+$/, // Just a video UID
+      /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
+      /^https?:\/\/youtu\.be\/[\w-]+/,
     ];
-    return patterns.some(pattern => pattern.test(url.trim()));
+    return patterns.some(pattern => pattern.test(url));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,8 +118,8 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             // TUS resumable upload for files >200MB
             // The upload session is already created on the server
             // Implement TUS PATCH requests manually
-            const chunkSize = 5 * 1024 * 1024; // 5MB chunks
-            const totalSize = videoFile.size;
+          const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+          const totalSize = videoFile.size;
             let offset = 0;
             let videoUid = '';
 
@@ -164,7 +162,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
               if (!patchResponse.ok && patchResponse.status !== 204) {
                 const errorText = await patchResponse.text().catch(() => '');
                 throw new Error(`TUS upload failed with status ${patchResponse.status}: ${errorText}`);
-              }
+            }
 
               // Update progress (10-90%)
               const progress = Math.min(90, 10 + Math.floor((end / totalSize) * 80));
@@ -201,7 +199,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             }
 
             streamVideoUrl = videoUid;
-            setUploadProgress(90);
+              setUploadProgress(90);
           }
 
           if (!streamVideoUrl) {
@@ -259,16 +257,16 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
         setUploadProgress(100);
       } else {
-        // Submit Cloudflare Stream link
-        if (!streamUrl.trim()) {
-          setError('Please enter a Cloudflare Stream URL or video UID');
+        // Submit YouTube link
+        if (!youtubeUrl.trim()) {
+          setError('Please enter a YouTube URL');
           setLoading(false);
           return;
         }
 
-        // Validate Cloudflare Stream URL format
-        if (!isValidCloudflareStreamUrl(streamUrl.trim())) {
-          setError('Invalid Cloudflare Stream URL format. Please provide a valid Stream URL or video UID.');
+        // Validate YouTube URL format
+        if (!isValidYouTubeUrl(youtubeUrl.trim())) {
+          setError('Invalid YouTube URL format. Please provide a valid YouTube link (e.g., https://www.youtube.com/watch?v=...)');
           setLoading(false);
           return;
         }
@@ -280,7 +278,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ speech_url: streamUrl.trim() }),
+          body: JSON.stringify({ speech_url: youtubeUrl.trim() }),
         });
 
         setUploadProgress(100);
@@ -297,7 +295,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       // Success
       setVideoFile(null);
       setAudioFile(null);
-      setStreamUrl('');
+      setYoutubeUrl('');
       setUploadProgress(0);
       onSuccess();
       onClose();
@@ -335,15 +333,15 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     }
   };
 
-  const handleStreamUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setStreamUrl(e.target.value);
+  const handleYoutubeUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setYoutubeUrl(e.target.value);
     setError('');
   };
 
   const handleClose = () => {
     setVideoFile(null);
     setAudioFile(null);
-    setStreamUrl('');
+    setYoutubeUrl('');
     setError('');
     setUploadProgress(0);
     setSubmissionType('video');
@@ -380,16 +378,16 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           </button>
           <button
             type="button"
-            onClick={() => setSubmissionType('stream-link')}
+            onClick={() => setSubmissionType('youtube-link')}
             disabled={loading}
             className="flex-1 px-3 py-3 brutal-border rounded-lg font-bold text-xs transition-all disabled:opacity-50"
             style={{
-              backgroundColor: submissionType === 'stream-link' ? 'var(--primary)' : '#ffffff',
-              color: submissionType === 'stream-link' ? '#ffffff' : '#1a1a1a',
-              boxShadow: submissionType === 'stream-link' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
+              backgroundColor: submissionType === 'youtube-link' ? 'var(--primary)' : '#ffffff',
+              color: submissionType === 'youtube-link' ? '#ffffff' : '#1a1a1a',
+              boxShadow: submissionType === 'youtube-link' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
             }}
           >
-            Stream Link
+            YouTube Link
           </button>
           <button
             type="button"
@@ -451,17 +449,17 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 </div>
               )}
             </div>
-          ) : submissionType === 'stream-link' ? (
+          ) : submissionType === 'youtube-link' ? (
             <div className="mb-4">
-              <label htmlFor="stream-url" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
-                Cloudflare Stream URL or Video UID
+              <label htmlFor="youtube-url" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
+                YouTube URL
               </label>
               <input
-                id="stream-url"
-                type="text"
-                value={streamUrl}
-                onChange={handleStreamUrlChange}
-                placeholder="https://customer-xxx.cloudflarestream.com/xxx/watch or video-uid"
+                id="youtube-url"
+                type="url"
+                value={youtubeUrl}
+                onChange={handleYoutubeUrlChange}
+                placeholder="https://www.youtube.com/watch?v=..."
                 className="w-full px-4 py-3 brutal-border rounded-lg text-sm"
                 style={{
                   color: '#1a1a1a',
@@ -471,7 +469,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 disabled={loading}
               />
               <p className="text-xs mt-1" style={{ color: '#666' }}>
-                Paste a Cloudflare Stream URL or video UID (e.g., https://customer-xxx.cloudflarestream.com/xxx/watch)
+                Paste a YouTube link to an existing video (e.g., https://www.youtube.com/watch?v=... or https://youtu.be/...)
               </p>
 
               {uploadProgress > 0 && uploadProgress < 100 && (

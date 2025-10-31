@@ -12,9 +12,17 @@ function getWeekStartDate(date: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-// Validate Cloudflare Stream URL or UID
+// Validate YouTube URL
+function isValidYouTubeUrl(url: string): boolean {
+  const patterns = [
+    /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
+    /^https?:\/\/youtu\.be\/[\w-]+/,
+  ];
+  return patterns.some(pattern => pattern.test(url.trim()));
+}
+
+// Validate Cloudflare Stream URL or UID (for video uploads)
 function isValidCloudflareStreamUrl(url: string): boolean {
-  // Accept Cloudflare Stream URLs or video UIDs
   const patterns = [
     /^https?:\/\/.*\.cloudflarestream\.com\/[\w-]+\/watch/,
     /^https?:\/\/.*\.videodelivery\.net\/[\w-]+/,
@@ -95,27 +103,32 @@ export async function POST(request: Request) {
 
       speechUrl = publicUrl;
     } 
-    // Handle application/json (Cloudflare Stream URL or UID)
+    // Handle application/json (YouTube URL from YouTube Link tab, or Stream UID from video upload)
     else {
       const body = await request.json();
       const { speech_url } = body;
 
       if (!speech_url) {
         return NextResponse.json(
-          { error: 'Cloudflare Stream URL or video UID is required' },
+          { error: 'Speech URL is required' },
           { status: 400 }
         );
       }
 
-      // Validate Cloudflare Stream URL format
-      if (!isValidCloudflareStreamUrl(speech_url)) {
+      // Check if it's a YouTube URL (from YouTube Link tab)
+      if (isValidYouTubeUrl(speech_url)) {
+        speechUrl = speech_url;
+      } 
+      // Check if it's a Cloudflare Stream UID/URL (from video upload)
+      else if (isValidCloudflareStreamUrl(speech_url)) {
+        speechUrl = speech_url;
+      } 
+      else {
         return NextResponse.json(
-          { error: 'Invalid Cloudflare Stream URL format. Please provide a valid Stream URL or video UID.' },
+          { error: 'Invalid URL format. Please provide a valid YouTube link or Cloudflare Stream URL/UID.' },
           { status: 400 }
         );
       }
-
-      speechUrl = speech_url;
     }
 
     // Check for duplicate URL for this user

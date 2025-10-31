@@ -51,8 +51,21 @@ export async function POST(request: Request) {
     const apiToken = process.env.CLOUDFLARE_STREAM_API_TOKEN;
 
     if (!accountId || !apiToken) {
+      const missingVars = [];
+      if (!accountId) missingVars.push('CLOUDFLARE_ACCOUNT_ID');
+      if (!apiToken) missingVars.push('CLOUDFLARE_STREAM_API_TOKEN');
+      
+      console.error('Cloudflare Stream configuration missing:', {
+        missing: missingVars,
+        accountIdSet: !!accountId,
+        apiTokenSet: !!apiToken,
+      });
+      
       return NextResponse.json(
-        { error: 'Cloudflare Stream configuration missing' },
+        { 
+          error: `Cloudflare Stream configuration missing: ${missingVars.join(', ')}. Please check your environment variables.`,
+          missing: missingVars,
+        },
         { status: 500 }
       );
     }
