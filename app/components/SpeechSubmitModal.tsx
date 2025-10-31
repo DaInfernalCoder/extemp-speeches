@@ -57,7 +57,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         const formData = new FormData();
         formData.append('video_file', videoFile);
 
-        // Upload to YouTube (0-50% progress)
+        // Upload to YouTube via resumable upload (0-50% progress)
         setUploadProgress(10);
 
         const youtubeResponse = await fetch('/api/youtube/upload', {
@@ -250,7 +250,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                     ></div>
                   </div>
                   <p className="text-xs text-gray-600 mt-1 text-center">
-                    {uploadProgress < 50 ? 'Uploading to YouTube...' : 'Processing...'} {uploadProgress}%
+                    {uploadProgress < 50 ? 'Uploading video to YouTube (this may take a while for large files)...' : uploadProgress < 70 ? 'Processing upload...' : 'Submitting speech...'} {uploadProgress}%
                   </p>
                 </div>
               )}

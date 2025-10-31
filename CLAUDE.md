@@ -69,10 +69,14 @@ Configuration:
 - **POST /api/youtube/upload**: Upload video to YouTube
   - Accepts multipart/form-data with video file
   - Validates file type (video/*) and size (max 1.5 GB)
-  - Uses YouTube Data API v3 to upload video as unlisted
+  - Uses YouTube Data API v3 Resumable Upload protocol to upload large videos in chunks (5MB chunks)
+  - Initializes upload session with metadata, then streams video in chunks to YouTube
+  - Handles token refresh automatically if OAuth token expires during upload
+  - Uploads video as unlisted on YouTube
   - Returns YouTube video URL
   - Requires authentication and YouTube upload permission
   - Uses OAuth access token from Supabase session
+  - Configured with maxDuration of 300 seconds (5 minutes) for large uploads
 
 - **POST /api/speeches/submit**: Submit a new speech with YouTube URL or audio file
   - Accepts either JSON (YouTube URL) or multipart/form-data (audio file upload)
