@@ -70,22 +70,41 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         // Upload to YouTube via resumable upload (0-50% progress)
         setUploadProgress(10);
 
-        const youtubeResponse = await fetch('/api/youtube/upload', {
-          method: 'POST',
-          body: formData,
-        });
+        // Use AbortController for timeout handling on large uploads
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
 
-        setUploadProgress(50);
+        try {
+          const youtubeResponse = await fetch('/api/youtube/upload', {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal,
+          });
 
-        const youtubeData = await youtubeResponse.json();
+          clearTimeout(timeoutId);
+          setUploadProgress(50);
 
-        if (!youtubeResponse.ok) {
-          setError(youtubeData.error || 'Failed to upload video to YouTube');
+          const youtubeData = await youtubeResponse.json();
+
+          if (!youtubeResponse.ok) {
+            setError(youtubeData.error || 'Failed to upload video to YouTube');
+            setLoading(false);
+            return;
+          }
+
+          youtubeUrl = youtubeData.youtube_url;
+        } catch (fetchError: any) {
+          clearTimeout(timeoutId);
+          if (fetchError.name === 'AbortError') {
+            setError('Upload timeout - the file is too large or the connection is too slow. Please try a smaller file or check your internet connection.');
+          } else if (fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('SSL') || fetchError.message?.includes('ERR_SSL')) {
+            setError('Connection error during upload - this can happen with large files. Please try again or use a smaller file.');
+          } else {
+            setError(fetchError.message || 'Failed to upload video to YouTube');
+          }
           setLoading(false);
           return;
         }
-
-        youtubeUrl = youtubeData.youtube_url;
 
         // Now submit the YouTube URL to speeches
         setUploadProgress(70);

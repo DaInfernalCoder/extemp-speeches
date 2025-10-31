@@ -23,6 +23,79 @@ async function refreshAccessToken(
   return credentials.access_token;
 }
 
+// Helper function to handle chunk upload response
+async function handleChunkResponse(
+  response: Response,
+  uploadUrl: string,
+  accessToken: string,
+  refreshToken: string | undefined,
+  oauth2Client: OAuth2Client,
+  uploadedBytes: number,
+  chunkSize: number,
+  totalSize: number,
+  chunk: Uint8Array,
+  contentRange: string
+): Promise<{ complete: boolean; youtubeUrl?: string; newAccessToken?: string; nextByte: number }> {
+  // Handle token expiration during chunk upload
+  let currentResponse = response;
+  if (response.status === 401 && refreshToken) {
+    try {
+      const newToken = await refreshAccessToken(oauth2Client, refreshToken);
+      // Retry this chunk with refreshed token
+      const retryResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${newToken}`,
+          'Content-Length': chunkSize.toString(),
+          'Content-Range': contentRange,
+        },
+        body: Buffer.from(chunk),
+      });
+
+      if (!retryResponse.ok && retryResponse.status !== 308 && retryResponse.status !== 201 && retryResponse.status !== 200) {
+        const errorData = await retryResponse.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || 'Failed to upload chunk after token refresh');
+      }
+      
+      currentResponse = retryResponse;
+      accessToken = newToken;
+    } catch (refreshError) {
+      throw new Error('YouTube access token expired during upload. Please log out and log in again.');
+    }
+  }
+
+  // 308 Resume Incomplete - continue with next chunk
+  if (currentResponse.status === 308) {
+    const rangeHeader = currentResponse.headers.get('Range');
+    let nextByte = uploadedBytes + chunkSize;
+    if (rangeHeader) {
+      // YouTube tells us what bytes were received
+      const match = rangeHeader.match(/bytes=0-(\d+)/);
+      if (match) {
+        nextByte = parseInt(match[1], 10) + 1;
+      }
+    }
+    return { complete: false, newAccessToken: accessToken, nextByte };
+  }
+  // 201/200 Created/OK - upload complete
+  else if (currentResponse.status === 201 || currentResponse.status === 200) {
+    const videoData = await currentResponse.json();
+    const videoId = videoData.id;
+    
+    if (!videoId) {
+      throw new Error('Failed to get video ID from YouTube');
+    }
+
+    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    return { complete: true, youtubeUrl, nextByte: totalSize };
+  }
+  // Error status
+  else {
+    const errorData = await currentResponse.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `Upload failed with status ${currentResponse.status}`);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -182,102 +255,128 @@ export async function POST(request: Request) {
       );
     }
 
-    // Step 2: Upload video in chunks
-    // Read file into buffer (for chunked upload)
-    const arrayBuffer = await videoFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Step 2: Upload video in chunks using streaming
+    // Stream the file instead of loading entire file into memory
+    const fileStream = videoFile.stream();
+    const reader = fileStream.getReader();
     
     const chunkSize = 5 * 1024 * 1024; // 5MB chunks
-    let startByte = 0;
-    let endByte = Math.min(chunkSize - 1, buffer.length - 1);
+    const totalSize = videoFile.size;
+    let uploadedBytes = 0;
+    let chunkBuffer: Uint8Array[] = [];
+    let chunkBufferSize = 0;
     
-    while (startByte < buffer.length) {
-      const chunk = buffer.slice(startByte, endByte + 1);
-      const contentRange = `bytes ${startByte}-${endByte}/${buffer.length}`;
-      
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Length': chunk.length.toString(),
-          'Content-Range': contentRange,
-        },
-        body: chunk,
-      });
-
-      // Handle token expiration during chunk upload
-      let currentResponse = uploadResponse;
-      if (uploadResponse.status === 401 && refreshToken) {
-        try {
-          accessToken = await refreshAccessToken(oauth2Client, refreshToken);
-          // Retry this chunk with refreshed token
-          const retryResponse = await fetch(uploadUrl, {
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          // Upload remaining buffered data if any
+          if (chunkBufferSize > 0) {
+            const finalChunk = new Uint8Array(chunkBufferSize);
+            let offset = 0;
+            for (const buf of chunkBuffer) {
+              finalChunk.set(buf, offset);
+              offset += buf.length;
+            }
+            
+            const contentRange = `bytes ${uploadedBytes}-${uploadedBytes + chunkBufferSize - 1}/${totalSize}`;
+            
+            const uploadResponse = await fetch(uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Length': chunkBufferSize.toString(),
+                'Content-Range': contentRange,
+              },
+              body: finalChunk,
+            });
+            
+            const result = await handleChunkResponse(
+              uploadResponse,
+              uploadUrl,
+              accessToken,
+              refreshToken || undefined,
+              oauth2Client,
+              uploadedBytes,
+              chunkBufferSize,
+              totalSize,
+              finalChunk,
+              contentRange
+            );
+            if (result.complete) {
+              return NextResponse.json(
+                { success: true, youtube_url: result.youtubeUrl! },
+                { status: 200 }
+              );
+            }
+            if (result.newAccessToken) {
+              accessToken = result.newAccessToken;
+            }
+            uploadedBytes = result.nextByte;
+          }
+          break;
+        }
+        
+        // Add to chunk buffer
+        chunkBuffer.push(value);
+        chunkBufferSize += value.length;
+        
+        // Upload when chunk size reached
+        if (chunkBufferSize >= chunkSize) {
+          // Combine buffers into single chunk
+          const chunk = new Uint8Array(chunkBufferSize);
+          let offset = 0;
+          for (const buf of chunkBuffer) {
+            chunk.set(buf, offset);
+            offset += buf.length;
+          }
+          
+          const contentRange = `bytes ${uploadedBytes}-${uploadedBytes + chunkBufferSize - 1}/${totalSize}`;
+          
+          const uploadResponse = await fetch(uploadUrl, {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
-              'Content-Length': chunk.length.toString(),
+              'Content-Length': chunkBufferSize.toString(),
               'Content-Range': contentRange,
             },
             body: chunk,
           });
-
-          if (!retryResponse.ok && retryResponse.status !== 308 && retryResponse.status !== 201 && retryResponse.status !== 200) {
-            const errorData = await retryResponse.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || 'Failed to upload chunk after token refresh');
-          }
           
-          currentResponse = retryResponse;
-        } catch (refreshError) {
-          return NextResponse.json(
-            { error: 'YouTube access token expired during upload. Please log out and log in again.' },
-            { status: 401 }
+          const result = await handleChunkResponse(
+            uploadResponse,
+            uploadUrl,
+            accessToken,
+            refreshToken || undefined,
+            oauth2Client,
+            uploadedBytes,
+            chunkBufferSize,
+            totalSize,
+            chunk,
+            contentRange
           );
-        }
-      }
-
-      // 308 Resume Incomplete - continue with next chunk
-      if (currentResponse.status === 308) {
-        const rangeHeader = currentResponse.headers.get('Range');
-        if (rangeHeader) {
-          // YouTube tells us what bytes were received
-          const match = rangeHeader.match(/bytes=0-(\d+)/);
-          if (match) {
-            startByte = parseInt(match[1], 10) + 1;
-          } else {
-            startByte = endByte + 1;
+          if (result.complete) {
+            return NextResponse.json(
+              { success: true, youtube_url: result.youtubeUrl! },
+              { status: 200 }
+            );
           }
-        } else {
-          startByte = endByte + 1;
+          if (result.newAccessToken) {
+            accessToken = result.newAccessToken;
+          }
+          uploadedBytes = result.nextByte;
+          
+          // Reset chunk buffer
+          chunkBuffer = [];
+          chunkBufferSize = 0;
         }
-        endByte = Math.min(startByte + chunkSize - 1, buffer.length - 1);
       }
-      // 201/200 Created/OK - upload complete
-      else if (currentResponse.status === 201 || currentResponse.status === 200) {
-        const videoData = await currentResponse.json();
-        const videoId = videoData.id;
-        
-        if (!videoId) {
-          return NextResponse.json(
-            { error: 'Failed to get video ID from YouTube' },
-            { status: 500 }
-          );
-        }
-
-        const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-        return NextResponse.json(
-          { success: true, youtube_url: youtubeUrl },
-          { status: 200 }
-        );
-      }
-      // Error status
-      else {
-        const errorData = await uploadResponse.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `Upload failed with status ${uploadResponse.status}`);
-      }
+    } finally {
+      reader.releaseLock();
     }
 
-    // If we exit the loop without getting 201, something went wrong
+    // If we exit the loop without getting completion, something went wrong
     return NextResponse.json(
       { error: 'Upload incomplete - failed to complete chunked upload' },
       { status: 500 }
