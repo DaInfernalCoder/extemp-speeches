@@ -8,7 +8,7 @@ import SpeechSubmitModal from './SpeechSubmitModal';
 import BallotSubmitModal from './BallotSubmitModal';
 import BallotViewModal from './BallotViewModal';
 import FeatureRequestModal from './FeatureRequestModal';
-import type { User } from '@supabase/supabase-js';
+import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface Ballot {
   id: string;
@@ -168,7 +168,7 @@ const LeaderBoard: React.FC = () => {
 
   useEffect(() => {
     // Get initial user
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => {
       setUser(user);
       if (user) {
         fetchEmailPreferences();
@@ -176,7 +176,10 @@ const LeaderBoard: React.FC = () => {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((
+      _event: AuthChangeEvent,
+      session: Session | null
+    ) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchEmailPreferences();
