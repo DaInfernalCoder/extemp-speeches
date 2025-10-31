@@ -91,149 +91,115 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
           setUploadProgress(10);
 
-          // Step 2: Upload file directly to YouTube using resumable upload
+          // Step 2: Upload file directly to YouTube using resumable upload (Blob.slice loop)
           const uploadUrl = initData.upload_url;
           const chunkSize = 5 * 1024 * 1024; // 5MB chunks
           const totalSize = videoFile.size;
-          let uploadedBytes = 0;
+          let start = 0;
 
-          // Read file as stream
-          const fileStream = videoFile.stream();
-          const reader = fileStream.getReader();
-          let chunkBuffer: Uint8Array[] = [];
-          let chunkBufferSize = 0;
+          const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-
-              if (done) {
-                // Upload remaining buffered data if any
-                if (chunkBufferSize > 0) {
-                  const finalChunk = new Uint8Array(chunkBufferSize);
-                  let offset = 0;
-                  for (const buf of chunkBuffer) {
-                    finalChunk.set(buf, offset);
-                    offset += buf.length;
-                  }
-
-                  const contentRange = `bytes ${uploadedBytes}-${uploadedBytes + chunkBufferSize - 1}/${totalSize}`;
-
-                  const uploadResponse = await fetch(uploadUrl, {
-                    method: 'PUT',
-                    headers: {
-                      'Content-Length': chunkBufferSize.toString(),
-                      'Content-Range': contentRange,
-                    },
-                    body: finalChunk,
-                  });
-
-                  // Update progress (10-90% for upload)
-                  const progressPercent = Math.min(90, 10 + Math.floor((uploadedBytes / totalSize) * 80));
-                  setUploadProgress(progressPercent);
-
-                  // 308 Resume Incomplete - continue with next chunk
-                  if (uploadResponse.status === 308) {
-                    const rangeHeader = uploadResponse.headers.get('Range');
-                    if (rangeHeader) {
-                      const match = rangeHeader.match(/bytes=0-(\d+)/);
-                      if (match) {
-                        uploadedBytes = parseInt(match[1], 10) + 1;
-                      } else {
-                        uploadedBytes += chunkBufferSize;
-                      }
-                    } else {
-                      uploadedBytes += chunkBufferSize;
-                    }
-                  }
-                  // 201/200 Created/OK - upload complete
-                  else if (uploadResponse.status === 201 || uploadResponse.status === 200) {
-                    const videoData = await uploadResponse.json();
-                    const videoId = videoData.id;
-
-                    if (!videoId) {
-                      throw new Error('Failed to get video ID from YouTube');
-                    }
-
-                    youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                    setUploadProgress(90);
-                    break;
-                  } else {
-                    const errorData = await uploadResponse.json().catch(() => ({}));
-                    throw new Error(errorData.error?.message || `Upload failed with status ${uploadResponse.status}`);
-                  }
-                }
-                break;
-              }
-
-              // Add to chunk buffer
-              chunkBuffer.push(value);
-              chunkBufferSize += value.length;
-
-              // Upload when chunk size reached
-              if (chunkBufferSize >= chunkSize) {
-                // Combine buffers into single chunk
-                const chunk = new Uint8Array(chunkBufferSize);
-                let offset = 0;
-                for (const buf of chunkBuffer) {
-                  chunk.set(buf, offset);
-                  offset += buf.length;
-                }
-
-                const contentRange = `bytes ${uploadedBytes}-${uploadedBytes + chunkBufferSize - 1}/${totalSize}`;
-
-                const uploadResponse = await fetch(uploadUrl, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Length': chunkBufferSize.toString(),
-                    'Content-Range': contentRange,
-                  },
-                  body: chunk,
-                });
-
-                // Update progress (10-90% for upload)
-                const progressPercent = Math.min(90, 10 + Math.floor(((uploadedBytes + chunkBufferSize) / totalSize) * 80));
-                setUploadProgress(progressPercent);
-
-                // 308 Resume Incomplete - continue with next chunk
-                if (uploadResponse.status === 308) {
-                  const rangeHeader = uploadResponse.headers.get('Range');
-                  if (rangeHeader) {
-                    const match = rangeHeader.match(/bytes=0-(\d+)/);
-                    if (match) {
-                      uploadedBytes = parseInt(match[1], 10) + 1;
-                    } else {
-                      uploadedBytes += chunkBufferSize;
-                    }
-                  } else {
-                    uploadedBytes += chunkBufferSize;
-                  }
-                  // Continue to next iteration
-                }
-                // 201/200 Created/OK - upload complete
-                else if (uploadResponse.status === 201 || uploadResponse.status === 200) {
-                  const videoData = await uploadResponse.json();
-                  const videoId = videoData.id;
-
-                  if (!videoId) {
-                    throw new Error('Failed to get video ID from YouTube');
-                  }
-
-                  youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                  setUploadProgress(90);
-                  break;
-                } else {
-                  const errorData = await uploadResponse.json().catch(() => ({}));
-                  throw new Error(errorData.error?.message || `Upload failed with status ${uploadResponse.status}`);
-                }
-
-                // Reset chunk buffer
-                chunkBuffer = [];
-                chunkBufferSize = 0;
-              }
+          const probePosition = async (): Promise<number | null> => {
+            const probe = await fetch(uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Range': `bytes */${totalSize}`,
+              },
+            });
+            if (probe.status === 308) {
+              const rangeHeader = probe.headers.get('Range');
+              const match = rangeHeader?.match(/bytes=0-(\d+)/);
+              if (match) return parseInt(match[1], 10) + 1;
+              return 0;
             }
-          } finally {
-            reader.releaseLock();
+            return null;
+          };
+
+          const putChunk = async (
+            startByte: number,
+            endByte: number,
+            attempt = 0
+          ): Promise<{ nextStart: number; finished: boolean; videoId?: string }> => {
+            const body = videoFile.slice(startByte, endByte);
+            const contentRange = `bytes ${startByte}-${endByte - 1}/${totalSize}`;
+            let response: Response;
+            try {
+              response = await fetch(uploadUrl, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/octet-stream',
+                  'Content-Length': String(endByte - startByte),
+                  'Content-Range': contentRange,
+                },
+                body,
+              });
+            } catch (networkErr: any) {
+              if (attempt < 5) {
+                await sleep(250 * Math.pow(2, attempt));
+                return putChunk(startByte, endByte, attempt + 1);
+              }
+              throw new Error(networkErr?.message || 'Network error during upload');
+            }
+
+            // Update progress (10-90%) using acknowledged endByte
+            const acknowledged = Math.min(endByte, totalSize);
+            const progressPercent = Math.min(90, 10 + Math.floor((acknowledged / totalSize) * 80));
+            setUploadProgress(progressPercent);
+
+            if (response.status === 308) {
+              const rangeHeader = response.headers.get('Range');
+              if (rangeHeader) {
+                const match = rangeHeader.match(/bytes=0-(\d+)/);
+                const lastByte = match ? parseInt(match[1], 10) : endByte - 1;
+                const nextStart = lastByte + 1;
+                if (nextStart < endByte) {
+                  // Server only accepted partial chunk; resend remaining part
+                  return putChunk(nextStart, endByte, attempt);
+                }
+                return { nextStart, finished: false };
+              }
+
+              // Missing Range; probe current position
+              const probed = await probePosition();
+              if (probed !== null) {
+                if (probed < endByte) {
+                  return putChunk(probed, endByte, attempt);
+                }
+                return { nextStart: probed, finished: false };
+              }
+
+              // Fallback advance by chunk size
+              return { nextStart: endByte, finished: false };
+            }
+
+            if (response.status === 200 || response.status === 201) {
+              const videoData = await response.json();
+              const videoId = videoData?.id;
+              if (!videoId) {
+                throw new Error('Failed to get video ID from YouTube');
+              }
+              return { nextStart: totalSize, finished: true, videoId };
+            }
+
+            // Retry on 5xx
+            if (response.status >= 500 && attempt < 5) {
+              await sleep(250 * Math.pow(2, attempt));
+              return putChunk(startByte, endByte, attempt + 1);
+            }
+
+            const errBody = await response.text().catch(() => '');
+            throw new Error(`Upload failed with status ${response.status}: ${errBody?.slice(0, 200)}`);
+          };
+
+          while (start < totalSize) {
+            const end = Math.min(start + chunkSize, totalSize);
+            const result = await putChunk(start, end);
+            if (result.finished) {
+              youtubeUrl = `https://www.youtube.com/watch?v=${result.videoId}`;
+              setUploadProgress(90);
+              break;
+            }
+            start = result.nextStart;
           }
 
           if (!youtubeUrl) {

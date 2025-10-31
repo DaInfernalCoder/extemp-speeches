@@ -7,6 +7,22 @@ if (!process.env.RESEND_API_KEY) {
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = 'yourextempcoaches@resend.dev';
 
+// Resolve the public site URL for emails. Preference order:
+// 1) NEXT_PUBLIC_SITE_URL (explicit override)
+// 2) VERCEL_URL (provided by Vercel env) prefixed with https://
+// 3) localhost fallback for local development
+const SITE_URL: string = (() => {
+  const explicitUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (explicitUrl && explicitUrl.trim().length > 0) {
+    return explicitUrl;
+  }
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl && vercelUrl.trim().length > 0) {
+    return `https://${vercelUrl}`;
+  }
+  return 'http://localhost:3000';
+})();
+
 interface BallotDetails {
   reviewerName: string;
   gestures: number;
@@ -97,7 +113,7 @@ export async function sendDailyReminderEmail(
             <li>Develop a daily habit that compounds over time</li>
           </ul>
           <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}" class="cta-button">
+            <a href="${SITE_URL}" class="cta-button">
               Submit Your Speech Now
             </a>
           </p>
@@ -456,7 +472,7 @@ export async function sendFeatureRequestAlert(
           </div>
 
           <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}" class="cta-button">
+            <a href="${SITE_URL}" class="cta-button">
               View All Feature Requests
             </a>
           </p>

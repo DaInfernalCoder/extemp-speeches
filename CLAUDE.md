@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+IMPORTANT: always update claude.md if necessary if something changes and certain parts become out of date because of your changes
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -50,7 +52,7 @@ This project uses **Tailwind CSS v4**, which has different syntax than v3:
 
 The application uses **Supabase** for authentication, data storage, and file storage:
 - **Database Tables**:
-  - `users`: Stores user profiles (synced with auth.users)
+  - `users`: Stores user profiles (synced with auth.users), includes `email_reminders_enabled` and `last_reminder_sent_at` fields
   - `speeches`: Stores speech submissions with speech URLs and week tracking
   - `ballots`: Stores speech reviews with multiple criteria ratings (1-10 scale), feedback text, and comparison flags
   - `feature_requests`: Stores user-submitted feature requests with title and description
@@ -65,6 +67,25 @@ Configuration:
 - Environment variables in `.env.local` (not committed)
 - Middleware for auth session refresh in [middleware.ts](middleware.ts)
 
+### Email Notifications
+
+The application uses **Resend** for email delivery:
+- **Email Service**: Resend API for sending transactional and reminder emails
+- **Email Templates**: Located in [lib/resend.ts](lib/resend.ts) with functions for:
+  - `sendDailyReminderEmail()`: Daily reminder for users who haven't submitted a speech
+  - `sendBallotNotificationEmail()`: Notification when a user receives feedback on their speech
+  - `sendSpeechSubmissionAlert()`: Alert to coaches when a new speech is submitted
+  - `sendFeatureRequestAlert()`: Alert for new feature requests
+- **Scheduled Emails**: Daily reminders are triggered via Supabase pg_cron job calling the `/api/emails/daily-reminder` endpoint
+- **Configuration**:
+  - Requires `RESEND_API_KEY` environment variable
+  - From address: `yourextempcoaches@resend.dev`
+  - Email links base URL resolution order:
+    1. `NEXT_PUBLIC_SITE_URL` (recommended to set to `https://extemp-speeches.vercel.app/` in production)
+    2. `VERCEL_URL` (auto-provided by Vercel, prefixed with `https://`)
+    3. Fallback to `http://localhost:3000` for local development
+  - Set `NEXT_PUBLIC_SITE_URL` in Vercel Project Settings → Environment Variables for Production (and Preview if desired)
+
 ### API Routes
 
 - **POST /api/youtube/init**: Initialize YouTube resumable upload (NEW - Preferred)
@@ -78,19 +99,6 @@ Configuration:
   - Uses OAuth access token from Supabase session
   - Configured with maxDuration of 60 seconds
   - Client uploads file directly to YouTube (bypasses server timeout limits)
-
-- **POST /api/youtube/upload**: Upload video to YouTube (Legacy - kept for backward compatibility)
-  - Accepts multipart/form-data with video file
-  - Validates file type (video/*) and size (max 1.5 GB)
-  - Uses YouTube Data API v3 Resumable Upload protocol to upload large videos in chunks (5MB chunks)
-  - Initializes upload session with metadata, then streams video in chunks to YouTube
-  - Handles token refresh automatically if OAuth token expires during upload
-  - Uploads video as unlisted on YouTube
-  - Returns YouTube video URL
-  - Requires authentication and YouTube upload permission
-  - Uses OAuth access token from Supabase session
-  - Configured with maxDuration of 300 seconds (5 minutes, max for Vercel Hobby plan)
-  - Note: New client-side direct upload approach (using /api/youtube/init) is preferred for large files
 
 - **POST /api/speeches/submit**: Submit a new speech with YouTube URL or audio file
   - Accepts either JSON (YouTube URL) or multipart/form-data (audio file upload)
@@ -126,6 +134,27 @@ Configuration:
   - Validates title (required, max 200 characters) and description (required, max 5000 characters)
   - Inserts into `feature_requests` table
   - Requires authentication
+
+- **GET /api/users/email-preferences**: Fetch user's email notification preferences
+  - Returns `email_reminders_enabled` boolean flag
+  - Defaults to true if user has no preference set
+  - Requires authentication
+
+- **PATCH /api/users/email-preferences**: Update user's email notification preferences
+  - Accepts JSON with `enabled` boolean
+  - Updates `email_reminders_enabled` field in users table
+  - Requires authentication
+
+- **POST /api/emails/daily-reminder**: Trigger daily reminder emails
+  - Sends reminder emails to users who:
+    1. Have `email_reminders_enabled = true`
+    2. Haven't submitted a speech today
+  - Called by Supabase pg_cron job (scheduled external invocation)
+  - Requires `CRON_SECRET` header matching environment variable for authorization
+  - Uses Supabase service role for database access (no user session required)
+  - Sends emails via Resend service
+  - Updates `last_reminder_sent_at` timestamp for tracking
+  - Returns results array with success/failure status for each email sent
 
 ### Current State
 
@@ -176,23 +205,36 @@ The application features:
   - Cancel and Submit buttons matching ballot modal styling
   - Requires authentication before submission
 
+- **BallotViewModal Component** ([app/components/BallotViewModal.tsx](app/components/BallotViewModal.tsx)):
+  - Displays ballots received on a speech
+  - Dropdown to select between multiple ballots (indexed by reviewer name and date)
+  - Read-only display of all rating criteria (gestures, delivery, pauses, content, entertaining) as progress bars
+  - Shows reviewer name and submission timestamp
+  - Displays "Better than last" indicator if applicable
+  - Shows optional feedback text in a read-only box
+  - Close button to dismiss modal
+
 ## Code Organization
 
 ### Directory Structure
 
-- **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, FeatureRequestModal)
+- **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, BallotViewModal, FeatureRequestModal)
 - **app/api/**: API route handlers for backend operations
-  - `youtube/upload/`: YouTube video upload endpoint (uses YouTube Data API v3)
+  - `youtube/init/`: YouTube resumable upload initialization (preferred)
   - `speeches/`: Fetch speeches for ballot selection
   - `speeches/submit/`: Speech submission endpoint
   - `ballots/submit/`: Ballot submission endpoint
+  - `feature-requests/`: Fetch feature requests
   - `feature-requests/submit/`: Feature request submission endpoint
   - `leaderboard/`: Leaderboard data endpoint
+  - `users/email-preferences/`: Get/update email notification preferences
+  - `emails/daily-reminder/`: Trigger daily reminder emails (called by cron job)
 - **app/auth/callback/**: OAuth callback handler for Supabase
 - **lib/supabase/**: Supabase client utilities
   - `client.ts`: Browser client for client components
   - `server.ts`: Server client for server components and API routes
   - `middleware.ts`: Middleware client for session refresh
+- **lib/resend.ts**: Email template functions for transactional and reminder emails
 
 The codebase follows Next.js conventions:
 - Server Components by default (add `'use client'` directive for client components)
