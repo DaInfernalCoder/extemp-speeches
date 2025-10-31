@@ -146,7 +146,7 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
         console.error('Error fetching feature requests:', error);
       } else {
         // Transform the data to match the expected interface
-        const transformed = (featureRequests || []).map((req: any) => ({
+        const transformed = (featureRequests || []).map((req: FeatureRequestWithUser) => ({
           id: req.id,
           title: req.title,
           description: req.description,
