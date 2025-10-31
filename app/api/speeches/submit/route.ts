@@ -49,11 +49,11 @@ export async function POST(request: Request) {
         );
       }
 
-      // Validate file size (10 MB)
-      const maxSize = 10 * 1024 * 1024;
+      // Validate file size (50 MB)
+      const maxSize = 50 * 1024 * 1024;
       if (audioFile.size > maxSize) {
         return NextResponse.json(
-          { error: 'Audio file must be less than 10 MB' },
+          { error: 'Audio file must be less than 50 MB' },
           { status: 400 }
         );
       }

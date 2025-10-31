@@ -61,7 +61,7 @@ Submit a new speech with a YouTube URL or audio file upload.
 
 **Validation Rules**:
 - File must be an audio file (audio/*)
-- File size must be less than 10 MB
+- File size must be less than 50 MB
 - File is uploaded to Supabase Storage bucket `speech-audio`
 - User must be authenticated
 
@@ -82,7 +82,7 @@ Submit a new speech with a YouTube URL or audio file upload.
 ```
 ```json
 {
-  &quot;error&quot;: &quot;Audio file must be less than 10 MB&quot;
+  &quot;error&quot;: &quot;Audio file must be less than 50 MB&quot;
 }
 ```
 ```json

@@ -54,10 +54,10 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           return;
         }
 
-        // Validate file size (10 MB)
-        const maxSize = 10 * 1024 * 1024;
+        // Validate file size (50 MB)
+        const maxSize = 50 * 1024 * 1024;
         if (audioFile.size > maxSize) {
-          setError('Audio file must be less than 10 MB');
+          setError('Audio file must be less than 50 MB');
           setLoading(false);
           return;
         }
@@ -201,7 +201,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 </p>
               )}
               <p className="text-xs text-gray-500 mt-1">
-                Maximum file size: 10 MB. Supported formats: MP3, M4A, WAV, etc.
+                Maximum file size: 50 MB. Supported formats: MP3, M4A, WAV, etc.
               </p>
               
               {uploadProgress > 0 && uploadProgress < 100 && (

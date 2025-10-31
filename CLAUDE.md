@@ -54,7 +54,7 @@ The application uses **Supabase** for authentication, data storage, and file sto
   - `speeches`: Stores speech submissions with speech URLs and week tracking
   - `ballots`: Stores speech reviews with multiple criteria ratings (1-10 scale), feedback text, and comparison flags
 - **Storage Buckets**:
-  - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 10 MB limit)
+  - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 50 MB limit)
 - **Authentication**: Google OAuth via Supabase Auth
 - **Real-time**: Leaderboard and ballots update live when speeches or ballots are submitted
 - **RLS (Row Level Security)**: Enabled on all tables and storage buckets for security
@@ -69,7 +69,7 @@ Configuration:
 - **POST /api/speeches/submit**: Submit a new speech with YouTube URL or audio file
   - Accepts either JSON (YouTube URL) or multipart/form-data (audio file upload)
   - For YouTube: Validates URL format
-  - For audio: Validates file type and size (max 10 MB), uploads to Supabase Storage
+  - For audio: Validates file type and size (max 50 MB), uploads to Supabase Storage
   - Checks for duplicate URLs per user
   - Calculates week start date (Monday)
   - Requires authentication
@@ -116,7 +116,7 @@ The application features:
 - **SpeechSubmitModal Component** ([app/components/SpeechSubmitModal.tsx](app/components/SpeechSubmitModal.tsx)):
   - Tabbed interface for choosing between YouTube URL or audio upload
   - YouTube tab: URL input with validation
-  - Audio upload tab: File input with drag-and-drop, progress indicator, size validation (max 10 MB)
+  - Audio upload tab: File input with drag-and-drop, progress indicator, size validation (max 50 MB)
   - Client-side and server-side validation
   - Duplicate detection
 

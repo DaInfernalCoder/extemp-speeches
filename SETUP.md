@@ -8,7 +8,7 @@ All backend features have been successfully implemented:
 - ✅ Row Level Security (RLS) policies on tables and storage
 - ✅ Google OAuth authentication
 - ✅ Speech submission API with YouTube URL validation
-- ✅ Audio file upload via Supabase Storage (max 10 MB)
+- ✅ Audio file upload via Supabase Storage (max 50 MB)
 - ✅ Storage bucket `speech-audio` for audio files
 - ✅ Duplicate URL checking per user
 - ✅ Weekly and all-time speech tracking
@@ -45,7 +45,7 @@ All backend features have been successfully implemented:
 
 The `speech-audio` storage bucket has been created via database migration with the following settings:
 - **Public access**: Enabled (for playback)
-- **File size limit**: 10 MB
+- **File size limit**: 50 MB
 - **Allowed MIME types**: All audio formats (audio/*)
 - **RLS policies**: 
   - Authenticated users can upload to their own folders
@@ -82,7 +82,7 @@ npm run dev
 2. **Click &quot;Log In&quot;** → Authenticate with Google OAuth
 3. **Click &quot;New Speech&quot;** → Choose to submit either:
    - An unlisted YouTube link (YouTube URL tab)
-   - Upload an audio file directly (Upload Audio tab, max 10 MB)
+   - Upload an audio file directly (Upload Audio tab, max 50 MB)
 4. **Leaderboard updates** → See rankings update in real-time
 
 ### Weekly Tracking
@@ -99,7 +99,7 @@ npm run dev
 
 ### Audio Upload Features
 
-- **File size limit**: 10 MB (approximately 10 minutes of audio at standard quality)
+- **File size limit**: 50 MB (approximately 50 minutes of audio at standard quality)
 - **Supported formats**: All audio formats (MP3, M4A, WAV, OGG, AAC, FLAC, etc.)
 - **Storage**: Files are stored in Supabase Storage bucket `speech-audio`
 - **Organization**: Files are organized by user ID in separate folders
