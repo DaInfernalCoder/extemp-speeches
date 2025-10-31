@@ -7,15 +7,17 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient();
     
-    // Check authentication
-    const { data: { user, session }, error: authError } = await supabase.auth.getUser();
+    // Check authentication and get session with provider tokens
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
     
-    if (authError || !user || !session) {
+    if (authError || !session || !session.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
+
+    const user = session.user;
 
     // Get the video file from form data
     const formData = await request.formData();
