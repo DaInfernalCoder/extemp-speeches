@@ -117,7 +117,7 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
   const fetchFeatureRequests = async () => {
     setLoadingRequests(true);
     try {
-      const response = await fetch('/api/feature-requests');
+      const response = await fetch('/api/feature-requests', { cache: 'no-store' });
       const data = await response.json();
       
       if (response.ok) {

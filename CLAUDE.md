@@ -41,6 +41,51 @@ This project uses **Tailwind CSS v4**, which has different syntax than v3:
 - Uses `@theme inline` for custom theme configuration
 - Configured through [postcss.config.mjs](postcss.config.mjs) with `@tailwindcss/postcss` plugin
 
+### Neobrutalist Design System
+
+The application uses a **neobrutalist design language** inspired by modern design trends. Key characteristics:
+
+**Color Palette** ([app/globals.css](app/globals.css)):
+- Background: Warm cream (`#FFF8F0`)
+- Foreground: Dark charcoal (`#1a1a1a`)
+- Border: Pure black (`#000000`)
+- Primary accent: Vibrant blue (`#0066FF`)
+- Secondary accent: Bright yellow (`#FFD233`)
+- Additional accents: Pink (`#FF6B9D`), Teal (`#00CDB8`), Purple (`#B794F6`)
+- Status colors: Success green (`#00D9A0`), Error red (`#FF4757`)
+
+**Design Elements**:
+- **Thick black borders**: 3-4px solid black borders on all interactive elements
+- **Hard shadows**: Offset box shadows (e.g., `4px 4px 0px #000`) with no blur
+- **Flat colors**: Solid color fills, no gradients (except on podium for visual hierarchy)
+- **Bold typography**: Heavy font weights (700-800) for headings, medium (400-500) for body text
+- **Rounded corners**: Subtle border radius (8-12px) - not completely square
+- **High contrast**: Strong visual separation between elements
+
+**Utility Classes** ([app/globals.css](app/globals.css)):
+- `.brutal-border`: 3px solid black border
+- `.brutal-border-thick`: 4px solid black border
+- `.brutal-shadow`: Standard hard shadow (4px 4px 0px #000)
+- `.brutal-shadow-lg`: Large hard shadow (6px 6px 0px #000)
+- `.brutal-shadow-hover`: Hover state shadow (2px 2px 0px #000)
+- `.brutal-card`: Pre-styled card with border, shadow, and rounded corners
+- `.brutal-button`: Interactive button with border, shadow, and hover effects
+
+**Component Styling Patterns**:
+- **Buttons**: Thick borders, hard shadows that shift on hover (shadow translates down/right on press)
+- **Modals**: Cards with `brutal-card` class, thick borders, and prominent shadows
+- **Forms**: Inputs with 3px black borders, white backgrounds, no focus rings (use thick black outline instead)
+- **Tables**: Grid lines with 3px black borders between cells and rows
+- **Progress bars**: White backgrounds with thick borders, colored fills
+- **Links**: Bold text with primary color, underline on hover
+- **Sliders**: Custom styled with square/rounded thumbs, thick borders, and hard shadows
+
+**Interaction Design**:
+- Hover states shift shadows from `4px 4px` to `2px 2px` with transform
+- Active states shift shadows to `1px 1px` with larger transform
+- Transitions are snappy (150ms) for immediate feedback
+- No opacity changes - use shadow/transform instead
+
 ### TypeScript Configuration
 
 - **Path alias**: `@/*` maps to the root directory (e.g., `@/app/components/Foo`)
@@ -134,6 +179,13 @@ The application uses **Resend** for email delivery:
   - Validates title (required, max 200 characters) and description (required, max 5000 characters)
   - Inserts into `feature_requests` table
   - Requires authentication
+  - Note: Client fetches should use `{ cache: 'no-store' }` to always show fresh submissions
+
+ - **GET /api/feature-requests**: Fetch feature requests
+  - Returns list of feature requests with submitter name/email
+  - Requires authentication
+  - Configured as dynamic with no revalidation (`dynamic = 'force-dynamic'`, `revalidate = 0`)
+  - Intended to be fetched with `{ cache: 'no-store' }` on the client to avoid stale data
 
 - **GET /api/users/email-preferences**: Fetch user's email notification preferences
   - Returns `email_reminders_enabled` boolean flag
