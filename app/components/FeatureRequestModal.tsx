@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface FeatureRequestModalProps {
@@ -18,6 +18,17 @@ interface FeatureRequest {
     name: string | null;
     email: string;
   };
+}
+
+interface FeatureRequestWithUser {
+  id: string;
+  title: string;
+  description: string;
+  created_at: string;
+  users: {
+    name: string | null;
+    email: string;
+  } | null;
 }
 
 type Tab = 'submit' | 'view';
@@ -114,29 +125,51 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
     onClose();
   };
 
-  const fetchFeatureRequests = async () => {
+  const fetchFeatureRequests = useCallback(async () => {
     setLoadingRequests(true);
     try {
-      const response = await fetch('/api/feature-requests', { cache: 'no-store' });
-      const data = await response.json();
+      const { data: featureRequests, error } = await supabase
+        .from('feature_requests')
+        .select(`
+          id,
+          title,
+          description,
+          created_at,
+          users!user_id (
+            name,
+            email
+          )
+        `)
+        .order('created_at', { ascending: false });
       
-      if (response.ok) {
-        setFeatureRequests(data.featureRequests || []);
+      if (error) {
+        console.error('Error fetching feature requests:', error);
       } else {
-        console.error('Failed to fetch feature requests:', data.error);
+        // Transform the data to match the expected interface
+        const transformed = (featureRequests || []).map((req: any) => ({
+          id: req.id,
+          title: req.title,
+          description: req.description,
+          created_at: req.created_at,
+          user: {
+            name: req.users?.name || null,
+            email: req.users?.email || '',
+          },
+        }));
+        setFeatureRequests(transformed);
       }
     } catch (err) {
       console.error('Error fetching feature requests:', err);
     } finally {
       setLoadingRequests(false);
     }
-  };
+  }, [supabase]);
 
   useEffect(() => {
     if (isOpen && activeTab === 'view') {
       fetchFeatureRequests();
     }
-  }, [isOpen, activeTab]);
+  }, [isOpen, activeTab, fetchFeatureRequests]);
 
   if (!isOpen) return null;
 
