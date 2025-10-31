@@ -453,7 +453,7 @@ const LeaderBoard: React.FC = () => {
 
                   {/* Speech URLs */}
                   <div className="px-6 py-4">
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col items-center gap-2">
                       {entry.speech_details && entry.speech_details.length > 0 ? (
                         entry.speech_details.map((speechDetail, urlIndex) => (
                           <a
@@ -474,7 +474,7 @@ const LeaderBoard: React.FC = () => {
 
                   {/* Ballots */}
                   <div className="px-6 py-4">
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col items-center gap-2">
                       {entry.speech_details && entry.speech_details.length > 0 ? (
                         entry.speech_details.map((speechDetail, speechIndex) => {
                           const ballotCount = speechDetail.ballots?.length || 0;
@@ -532,12 +532,12 @@ const LeaderBoard: React.FC = () => {
                   {entry.speech_details && entry.speech_details.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-gray-100">
                       <span className="text-xs text-gray-500 mb-1 block">Recordings:</span>
-                      <div className="space-y-2">
+                      <div className="flex flex-col items-center gap-2">
                         {entry.speech_details.map((speechDetail, urlIndex) => {
                           const ballotCount = speechDetail.ballots?.length || 0;
 
                           return (
-                            <div key={urlIndex} className="flex flex-col gap-1">
+                            <div key={urlIndex} className="flex flex-col items-center gap-1">
                               <div className="flex items-center gap-2">
                                 <a
                                   href={speechDetail.speech_url}
