@@ -67,7 +67,19 @@ Configuration:
 
 ### API Routes
 
-- **POST /api/youtube/upload**: Upload video to YouTube
+- **POST /api/youtube/init**: Initialize YouTube resumable upload (NEW - Preferred)
+  - Accepts JSON with file metadata (fileName, fileSize, fileType)
+  - Validates file type (video/*) and size (max 1.5 GB)
+  - Initializes YouTube resumable upload session with metadata
+  - Returns upload URL to client for direct upload
+  - Handles token refresh automatically if OAuth token expires
+  - Fast endpoint (~1-2 seconds) - only initializes upload
+  - Requires authentication and YouTube upload permission
+  - Uses OAuth access token from Supabase session
+  - Configured with maxDuration of 60 seconds
+  - Client uploads file directly to YouTube (bypasses server timeout limits)
+
+- **POST /api/youtube/upload**: Upload video to YouTube (Legacy - kept for backward compatibility)
   - Accepts multipart/form-data with video file
   - Validates file type (video/*) and size (max 1.5 GB)
   - Uses YouTube Data API v3 Resumable Upload protocol to upload large videos in chunks (5MB chunks)
@@ -77,7 +89,8 @@ Configuration:
   - Returns YouTube video URL
   - Requires authentication and YouTube upload permission
   - Uses OAuth access token from Supabase session
-  - Configured with maxDuration of 300 seconds (5 minutes) for large uploads
+  - Configured with maxDuration of 300 seconds (5 minutes, max for Vercel Hobby plan)
+  - Note: New client-side direct upload approach (using /api/youtube/init) is preferred for large files
 
 - **POST /api/speeches/submit**: Submit a new speech with YouTube URL or audio file
   - Accepts either JSON (YouTube URL) or multipart/form-data (audio file upload)
@@ -135,7 +148,12 @@ The application features:
   
 - **SpeechSubmitModal Component** ([app/components/SpeechSubmitModal.tsx](app/components/SpeechSubmitModal.tsx)):
   - Tabbed interface for choosing between video upload, YouTube link, or audio upload
-  - Upload Video tab: File input for video files (max 1.5 GB), uploads directly to YouTube as unlisted, shows progress indicator
+  - Upload Video tab: File input for video files (max 1.5 GB), uses client-side direct upload to YouTube
+    - Calls `/api/youtube/init` to get upload URL (fast, ~1-2 seconds)
+    - Uploads file directly from browser to YouTube using resumable upload protocol (5MB chunks)
+    - Real-time progress tracking (10-90% for upload, 95% for speech submission)
+    - No server timeout limits (upload happens client → YouTube directly)
+    - Video uploaded as unlisted on YouTube
   - YouTube Link tab: Text input for pasting existing YouTube URLs, validates URL format, submits directly to speeches API
   - Upload Audio tab: File input for audio files (max 50 MB), uploads to Supabase Storage, shows progress indicator
   - Client-side and server-side validation

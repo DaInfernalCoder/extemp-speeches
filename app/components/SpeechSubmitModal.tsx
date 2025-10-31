@@ -49,7 +49,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       let youtubeUrl = '';
 
       if (submissionType === 'video') {
-        // Upload video to YouTube
+        // Upload video to YouTube using client-side direct upload
         if (!videoFile) {
           setError('Please select a video file');
           setLoading(false);
@@ -64,40 +64,196 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           return;
         }
 
-        const formData = new FormData();
-        formData.append('video_file', videoFile);
+        // Step 1: Initialize YouTube upload (get upload URL)
+        setUploadProgress(5);
 
-        // Upload to YouTube via resumable upload (0-50% progress)
-        setUploadProgress(10);
-
-        // Use AbortController for timeout handling on large uploads
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 660000); // 11 minute timeout
-
+        let initResponse;
         try {
-          const youtubeResponse = await fetch('/api/youtube/upload', {
+          initResponse = await fetch('/api/youtube/init', {
             method: 'POST',
-            body: formData,
-            signal: controller.signal,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fileName: videoFile.name,
+              fileSize: videoFile.size,
+              fileType: videoFile.type,
+            }),
           });
 
-          clearTimeout(timeoutId);
-          setUploadProgress(50);
+          const initData = await initResponse.json();
 
-          const youtubeData = await youtubeResponse.json();
-
-          if (!youtubeResponse.ok) {
-            setError(youtubeData.error || 'Failed to upload video to YouTube');
+          if (!initResponse.ok) {
+            setError(initData.error || 'Failed to initialize YouTube upload');
             setLoading(false);
             return;
           }
 
-          youtubeUrl = youtubeData.youtube_url;
+          setUploadProgress(10);
+
+          // Step 2: Upload file directly to YouTube using resumable upload
+          const uploadUrl = initData.upload_url;
+          const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+          const totalSize = videoFile.size;
+          let uploadedBytes = 0;
+
+          // Read file as stream
+          const fileStream = videoFile.stream();
+          const reader = fileStream.getReader();
+          let chunkBuffer: Uint8Array[] = [];
+          let chunkBufferSize = 0;
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+
+              if (done) {
+                // Upload remaining buffered data if any
+                if (chunkBufferSize > 0) {
+                  const finalChunk = new Uint8Array(chunkBufferSize);
+                  let offset = 0;
+                  for (const buf of chunkBuffer) {
+                    finalChunk.set(buf, offset);
+                    offset += buf.length;
+                  }
+
+                  const contentRange = `bytes ${uploadedBytes}-${uploadedBytes + chunkBufferSize - 1}/${totalSize}`;
+
+                  const uploadResponse = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Length': chunkBufferSize.toString(),
+                      'Content-Range': contentRange,
+                    },
+                    body: finalChunk,
+                  });
+
+                  // Update progress (10-90% for upload)
+                  const progressPercent = Math.min(90, 10 + Math.floor((uploadedBytes / totalSize) * 80));
+                  setUploadProgress(progressPercent);
+
+                  // 308 Resume Incomplete - continue with next chunk
+                  if (uploadResponse.status === 308) {
+                    const rangeHeader = uploadResponse.headers.get('Range');
+                    if (rangeHeader) {
+                      const match = rangeHeader.match(/bytes=0-(\d+)/);
+                      if (match) {
+                        uploadedBytes = parseInt(match[1], 10) + 1;
+                      } else {
+                        uploadedBytes += chunkBufferSize;
+                      }
+                    } else {
+                      uploadedBytes += chunkBufferSize;
+                    }
+                  }
+                  // 201/200 Created/OK - upload complete
+                  else if (uploadResponse.status === 201 || uploadResponse.status === 200) {
+                    const videoData = await uploadResponse.json();
+                    const videoId = videoData.id;
+
+                    if (!videoId) {
+                      throw new Error('Failed to get video ID from YouTube');
+                    }
+
+                    youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                    setUploadProgress(90);
+                    break;
+                  } else {
+                    const errorData = await uploadResponse.json().catch(() => ({}));
+                    throw new Error(errorData.error?.message || `Upload failed with status ${uploadResponse.status}`);
+                  }
+                }
+                break;
+              }
+
+              // Add to chunk buffer
+              chunkBuffer.push(value);
+              chunkBufferSize += value.length;
+
+              // Upload when chunk size reached
+              if (chunkBufferSize >= chunkSize) {
+                // Combine buffers into single chunk
+                const chunk = new Uint8Array(chunkBufferSize);
+                let offset = 0;
+                for (const buf of chunkBuffer) {
+                  chunk.set(buf, offset);
+                  offset += buf.length;
+                }
+
+                const contentRange = `bytes ${uploadedBytes}-${uploadedBytes + chunkBufferSize - 1}/${totalSize}`;
+
+                const uploadResponse = await fetch(uploadUrl, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Length': chunkBufferSize.toString(),
+                    'Content-Range': contentRange,
+                  },
+                  body: chunk,
+                });
+
+                // Update progress (10-90% for upload)
+                const progressPercent = Math.min(90, 10 + Math.floor(((uploadedBytes + chunkBufferSize) / totalSize) * 80));
+                setUploadProgress(progressPercent);
+
+                // 308 Resume Incomplete - continue with next chunk
+                if (uploadResponse.status === 308) {
+                  const rangeHeader = uploadResponse.headers.get('Range');
+                  if (rangeHeader) {
+                    const match = rangeHeader.match(/bytes=0-(\d+)/);
+                    if (match) {
+                      uploadedBytes = parseInt(match[1], 10) + 1;
+                    } else {
+                      uploadedBytes += chunkBufferSize;
+                    }
+                  } else {
+                    uploadedBytes += chunkBufferSize;
+                  }
+                  // Continue to next iteration
+                }
+                // 201/200 Created/OK - upload complete
+                else if (uploadResponse.status === 201 || uploadResponse.status === 200) {
+                  const videoData = await uploadResponse.json();
+                  const videoId = videoData.id;
+
+                  if (!videoId) {
+                    throw new Error('Failed to get video ID from YouTube');
+                  }
+
+                  youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                  setUploadProgress(90);
+                  break;
+                } else {
+                  const errorData = await uploadResponse.json().catch(() => ({}));
+                  throw new Error(errorData.error?.message || `Upload failed with status ${uploadResponse.status}`);
+                }
+
+                // Reset chunk buffer
+                chunkBuffer = [];
+                chunkBufferSize = 0;
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+
+          if (!youtubeUrl) {
+            throw new Error('Upload incomplete - failed to complete chunked upload');
+          }
+
+          // Now submit the YouTube URL to speeches
+          setUploadProgress(95);
+
+          response = await fetch('/api/speeches/submit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ speech_url: youtubeUrl }),
+          });
+
+          setUploadProgress(100);
         } catch (fetchError: any) {
-          clearTimeout(timeoutId);
-          if (fetchError.name === 'AbortError') {
-            setError('Upload timeout - the file is too large or the connection is too slow. Please try a smaller file or check your internet connection.');
-          } else if (fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('SSL') || fetchError.message?.includes('ERR_SSL')) {
+          if (fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('SSL') || fetchError.message?.includes('ERR_SSL')) {
             setError('Connection error during upload - this can happen with large files. Please try again or use a smaller file.');
           } else {
             setError(fetchError.message || 'Failed to upload video to YouTube');
@@ -105,19 +261,6 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           setLoading(false);
           return;
         }
-
-        // Now submit the YouTube URL to speeches
-        setUploadProgress(70);
-
-        response = await fetch('/api/speeches/submit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ speech_url: youtubeUrl }),
-        });
-
-        setUploadProgress(100);
       } else if (submissionType === 'audio') {
         // Submit audio file
         if (!audioFile) {
