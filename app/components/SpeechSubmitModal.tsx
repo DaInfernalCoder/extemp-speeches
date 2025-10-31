@@ -39,6 +39,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     try {
       // Check if user is authenticated
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('[DEBUG] User authentication check:', { user: user?.id, email: user?.email });
       if (!user) {
         setError('You must be logged in to submit a speech');
         setLoading(false);
@@ -69,8 +70,10 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
         let initResponse;
         try {
+          console.log('[DEBUG] Calling /api/cloudflare-stream/init with credentials');
           initResponse = await fetch('/api/cloudflare-stream/init', {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
             },
@@ -82,8 +85,10 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           });
 
           const initData = await initResponse.json();
+          console.log('[DEBUG] /api/cloudflare-stream/init response:', { status: initResponse.status, data: initData });
 
           if (!initResponse.ok) {
+            console.error('[DEBUG] Cloudflare init failed with status:', initResponse.status, initData);
             setError(initData.error || 'Failed to initialize Cloudflare Stream upload');
             setLoading(false);
             return;
@@ -211,6 +216,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
           response = await fetch('/api/speeches/submit', {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
             },
@@ -252,6 +258,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
         response = await fetch('/api/speeches/submit', {
           method: 'POST',
+          credentials: 'include',
           body: formData,
         });
 
@@ -275,6 +282,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
         response = await fetch('/api/speeches/submit', {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },

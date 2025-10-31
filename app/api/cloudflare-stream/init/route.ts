@@ -7,11 +7,20 @@ export const maxDuration = 60; // Fast endpoint, only initializes upload
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    
+
+    // Debug: Log incoming request headers
+    console.log('[DEBUG] /api/cloudflare-stream/init request headers:', {
+      cookie: request.headers.get('cookie') ? '(present)' : '(missing)',
+      authorization: request.headers.get('authorization') ? '(present)' : '(missing)',
+      contentType: request.headers.get('content-type'),
+    });
+
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    console.log('[DEBUG] Auth check result:', { userId: user?.id, hasUser: !!user, authError: authError?.message });
+
     if (authError || !user) {
+      console.error('[DEBUG] Auth failed - returning 401. Error:', authError?.message, 'User:', user);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
