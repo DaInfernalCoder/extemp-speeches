@@ -72,7 +72,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
         // Use AbortController for timeout handling on large uploads
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
+        const timeoutId = setTimeout(() => controller.abort(), 660000); // 11 minute timeout
 
         try {
           const youtubeResponse = await fetch('/api/youtube/upload', {

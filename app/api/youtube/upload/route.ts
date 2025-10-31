@@ -5,7 +5,7 @@ import type { OAuth2Client } from 'google-auth-library';
 
 // Disable body parser for this route to handle large files
 export const runtime = 'nodejs';
-export const maxDuration = 300; // 5 minutes for large uploads
+export const maxDuration = 600; // 10 minutes for large uploads
 
 // Helper function to refresh OAuth token
 async function refreshAccessToken(
