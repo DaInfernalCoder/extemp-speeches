@@ -9,16 +9,26 @@ interface SpeechSubmitModalProps {
   onSuccess: () => void;
 }
 
-type SubmissionType = 'video' | 'audio';
+type SubmissionType = 'video' | 'audio' | 'youtube-link';
 
 export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: SpeechSubmitModalProps) {
   const [submissionType, setSubmissionType] = useState<SubmissionType>('video');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const supabase = createClient();
+
+  // Validate YouTube URL format
+  const isValidYouTubeUrl = (url: string): boolean => {
+    const patterns = [
+      /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
+      /^https?:\/\/youtu\.be\/[\w-]+/,
+    ];
+    return patterns.some(pattern => pattern.test(url));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +99,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         });
 
         setUploadProgress(100);
-      } else {
+      } else if (submissionType === 'audio') {
         // Submit audio file
         if (!audioFile) {
           setError('Please select an audio file');
@@ -117,6 +127,32 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         });
 
         setUploadProgress(100);
+      } else {
+        // Submit YouTube link
+        if (!youtubeUrl.trim()) {
+          setError('Please enter a YouTube URL');
+          setLoading(false);
+          return;
+        }
+
+        // Validate YouTube URL format
+        if (!isValidYouTubeUrl(youtubeUrl.trim())) {
+          setError('Invalid YouTube URL format. Please provide a valid YouTube link (e.g., https://www.youtube.com/watch?v=...)');
+          setLoading(false);
+          return;
+        }
+
+        setUploadProgress(50);
+
+        response = await fetch('/api/speeches/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ speech_url: youtubeUrl.trim() }),
+        });
+
+        setUploadProgress(100);
       }
 
       const data = await response.json();
@@ -130,6 +166,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       // Success
       setVideoFile(null);
       setAudioFile(null);
+      setYoutubeUrl('');
       setUploadProgress(0);
       onSuccess();
       onClose();
@@ -167,9 +204,15 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     }
   };
 
+  const handleYoutubeUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setYoutubeUrl(e.target.value);
+    setError('');
+  };
+
   const handleClose = () => {
     setVideoFile(null);
     setAudioFile(null);
+    setYoutubeUrl('');
     setError('');
     setUploadProgress(0);
     setSubmissionType('video');
@@ -195,7 +238,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             type="button"
             onClick={() => setSubmissionType('video')}
             disabled={loading}
-            className="flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all disabled:opacity-50 active:scale-95"
+            className="flex-1 px-3 py-3 rounded-lg font-medium text-xs transition-all disabled:opacity-50 active:scale-95"
             style={{
               backgroundColor: submissionType === 'video' ? '#2C2C2C' : '#E5E5E5',
               color: submissionType === 'video' ? '#F5F5F5' : '#2C2C2C'
@@ -205,9 +248,21 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           </button>
           <button
             type="button"
+            onClick={() => setSubmissionType('youtube-link')}
+            disabled={loading}
+            className="flex-1 px-3 py-3 rounded-lg font-medium text-xs transition-all disabled:opacity-50 active:scale-95"
+            style={{
+              backgroundColor: submissionType === 'youtube-link' ? '#2C2C2C' : '#E5E5E5',
+              color: submissionType === 'youtube-link' ? '#F5F5F5' : '#2C2C2C'
+            }}
+          >
+            YouTube Link
+          </button>
+          <button
+            type="button"
             onClick={() => setSubmissionType('audio')}
             disabled={loading}
-            className="flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all disabled:opacity-50 active:scale-95"
+            className="flex-1 px-3 py-3 rounded-lg font-medium text-xs transition-all disabled:opacity-50 active:scale-95"
             style={{
               backgroundColor: submissionType === 'audio' ? '#2C2C2C' : '#E5E5E5',
               color: submissionType === 'audio' ? '#F5F5F5' : '#2C2C2C'
@@ -252,6 +307,37 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                   <p className="text-xs text-gray-600 mt-1 text-center">
                     {uploadProgress < 50 ? 'Uploading video to YouTube (this may take a while for large files)...' : uploadProgress < 70 ? 'Processing upload...' : 'Submitting speech...'} {uploadProgress}%
                   </p>
+                </div>
+              )}
+            </div>
+          ) : submissionType === 'youtube-link' ? (
+            <div className="mb-4">
+              <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-700 mb-2">
+                YouTube URL
+              </label>
+              <input
+                id="youtube-url"
+                type="url"
+                value={youtubeUrl}
+                onChange={handleYoutubeUrlChange}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+                required
+                disabled={loading}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Paste a YouTube link to an existing video (e.g., https://www.youtube.com/watch?v=... or https://youtu.be/...)
+              </p>
+              
+              {uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1 text-center">Submitting speech... {uploadProgress}%</p>
                 </div>
               )}
             </div>

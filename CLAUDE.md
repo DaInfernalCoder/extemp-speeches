@@ -126,8 +126,9 @@ The application features:
   - Shows user state
   
 - **SpeechSubmitModal Component** ([app/components/SpeechSubmitModal.tsx](app/components/SpeechSubmitModal.tsx)):
-  - Tabbed interface for choosing between video upload or audio upload
+  - Tabbed interface for choosing between video upload, YouTube link, or audio upload
   - Upload Video tab: File input for video files (max 1.5 GB), uploads directly to YouTube as unlisted, shows progress indicator
+  - YouTube Link tab: Text input for pasting existing YouTube URLs, validates URL format, submits directly to speeches API
   - Upload Audio tab: File input for audio files (max 50 MB), uploads to Supabase Storage, shows progress indicator
   - Client-side and server-side validation
   - Duplicate detection
