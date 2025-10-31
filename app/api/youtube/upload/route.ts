@@ -221,7 +221,7 @@ export async function POST(request: Request) {
             body: chunk,
           });
 
-          if (!retryResponse.ok && retryResponse.status !== 308 && retryResponse.status !== 201) {
+          if (!retryResponse.ok && retryResponse.status !== 308 && retryResponse.status !== 201 && retryResponse.status !== 200) {
             const errorData = await retryResponse.json().catch(() => ({}));
             throw new Error(errorData.error?.message || 'Failed to upload chunk after token refresh');
           }
@@ -251,8 +251,8 @@ export async function POST(request: Request) {
         }
         endByte = Math.min(startByte + chunkSize - 1, buffer.length - 1);
       }
-      // 201 Created - upload complete
-      else if (currentResponse.status === 201) {
+      // 201/200 Created/OK - upload complete
+      else if (currentResponse.status === 201 || currentResponse.status === 200) {
         const videoData = await currentResponse.json();
         const videoId = videoData.id;
         
