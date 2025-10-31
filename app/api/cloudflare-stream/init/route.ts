@@ -59,19 +59,27 @@ export async function POST(request: Request) {
     const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
     const apiToken = process.env.CLOUDFLARE_STREAM_API_TOKEN;
 
+    console.log('[DEBUG] Cloudflare env check:', {
+      accountIdSet: !!accountId,
+      accountIdLength: accountId?.length,
+      apiTokenSet: !!apiToken,
+      apiTokenLength: apiToken?.length,
+      apiTokenPreview: apiToken ? `${apiToken.substring(0, 10)}...` : 'not set',
+    });
+
     if (!accountId || !apiToken) {
       const missingVars = [];
       if (!accountId) missingVars.push('CLOUDFLARE_ACCOUNT_ID');
       if (!apiToken) missingVars.push('CLOUDFLARE_STREAM_API_TOKEN');
-      
+
       console.error('Cloudflare Stream configuration missing:', {
         missing: missingVars,
         accountIdSet: !!accountId,
         apiTokenSet: !!apiToken,
       });
-      
+
       return NextResponse.json(
-        { 
+        {
           error: `Cloudflare Stream configuration missing: ${missingVars.join(', ')}. Please check your environment variables.`,
           missing: missingVars,
         },
@@ -85,23 +93,31 @@ export async function POST(request: Request) {
 
     if (useDirectUpload) {
       // Create direct upload URL (for files <=200MB)
-      const directUploadResponse = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/direct_upload`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            maxDurationSeconds: 3600, // 1 hour max duration
-          }),
-        }
-      );
+      const cfUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/direct_upload`;
+      console.log('[DEBUG] Calling Cloudflare direct upload API:', {
+        url: cfUrl,
+        authHeaderSet: !!apiToken,
+        authHeaderPreview: apiToken ? `Bearer ${apiToken.substring(0, 10)}...` : 'not set',
+      });
+
+      const directUploadResponse = await fetch(cfUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          maxDurationSeconds: 3600, // 1 hour max duration
+        }),
+      });
 
       if (!directUploadResponse.ok) {
         const errorData = await directUploadResponse.json().catch(() => ({}));
-        console.error('Cloudflare Stream direct upload error:', errorData);
+        console.error('Cloudflare Stream direct upload error:', {
+          status: directUploadResponse.status,
+          statusText: directUploadResponse.statusText,
+          errors: errorData.errors,
+        });
         return NextResponse.json(
           { error: errorData.errors?.[0]?.message || 'Failed to initialize Cloudflare Stream upload' },
           { status: directUploadResponse.status }
