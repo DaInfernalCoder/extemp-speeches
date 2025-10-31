@@ -232,10 +232,14 @@ The application features:
   - Upload Video tab: File input for video files (max 1.5 GB), uses client-side direct upload to Cloudflare Stream
     - Calls `/api/cloudflare-stream/init` to get upload URL (fast, ~1-2 seconds)
     - For files <=200MB: Direct POST upload to Cloudflare Stream upload URL
-    - For files >200MB: TUS resumable upload protocol (5MB chunks using PATCH requests)
+    - For files >200MB: TUS resumable upload using `tus-js-client` library
+      - 5MB chunks with automatic retry (0ms, 3s, 5s, 10s, 20s delays)
+      - Built-in session persistence (auto-resume if browser closes)
+      - Handles network interruptions gracefully with exponential backoff
+      - No manual timeout management needed
     - Real-time progress tracking (10-90% for upload, 95% for speech submission)
     - No server timeout limits (upload happens client → Cloudflare Stream directly)
-    - Extracts video UID from response headers or upload URL
+    - Extracts video UID from upload URL
   - Stream Link tab: Text input for pasting existing Cloudflare Stream URLs or video UIDs, validates format, submits directly to speeches API
   - Upload Audio tab: File input for audio files (max 50 MB), uploads to Supabase Storage, shows progress indicator
   - Client-side and server-side validation

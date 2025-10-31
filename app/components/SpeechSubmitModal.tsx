@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import * as tus from 'tus-js-client';
 import { createClient } from '@/lib/supabase/client';
 
 interface SpeechSubmitModalProps {
@@ -120,91 +121,43 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             streamVideoUrl = `https://iframe.videodelivery.net/${videoUid}`; // Full iframe URL for Cloudflare Stream
             setUploadProgress(90);
           } else {
-            // TUS resumable upload for files >200MB
-            // The upload session is already created on the server
-            // Implement TUS PATCH requests manually
-          const chunkSize = 5 * 1024 * 1024; // 5MB chunks
-          const totalSize = videoFile.size;
-            let offset = 0;
-            let videoUid = '';
-
-            // First, check current upload offset
-            const headResponse = await fetch(uploadUrl, {
-              method: 'HEAD',
-              headers: {
-                'Tus-Resumable': '1.0.0',
-              },
-            });
-
-            if (headResponse.ok) {
-              const uploadOffset = headResponse.headers.get('Upload-Offset');
-              if (uploadOffset) {
-                offset = parseInt(uploadOffset, 10);
-              }
-              // Get video UID from header if available
-              const streamMediaId = headResponse.headers.get('stream-media-id');
-              if (streamMediaId) {
-                videoUid = streamMediaId;
-              }
-            }
-
-            // Upload chunks using PATCH
-            while (offset < totalSize) {
-              const end = Math.min(offset + chunkSize, totalSize);
-              const chunk = videoFile.slice(offset, end);
-              
-              const patchResponse = await fetch(uploadUrl, {
-                method: 'PATCH',
-                headers: {
-                  'Tus-Resumable': '1.0.0',
-                  'Content-Type': 'application/offset+octet-stream',
-                  'Upload-Offset': offset.toString(),
-                  'Content-Length': (end - offset).toString(),
+            // TUS resumable upload for files >200MB using tus-js-client
+            // This provides automatic retry, session persistence, and resume capability
+            await new Promise<void>((resolve, reject) => {
+              const tusUpload = new tus.Upload(videoFile, {
+                endpoint: uploadUrl,
+                retryDelays: [0, 3000, 5000, 10000, 20000], // Default retry delays with exponential backoff
+                chunkSize: 5 * 1024 * 1024, // 5MB chunks
+                metadata: {
+                  filename: videoFile.name,
+                  filetype: videoFile.type,
                 },
-                body: chunk,
+                onProgress: (bytesUploaded: number, bytesTotal: number) => {
+                  // Update progress (10-90%)
+                  const progress = Math.min(90, 10 + Math.floor((bytesUploaded / bytesTotal) * 80));
+                  setUploadProgress(progress);
+                },
+                onSuccess: () => {
+                  // Extract video UID from upload URL
+                  const urlParts = uploadUrl.split('/');
+                  const extractedUid = urlParts[urlParts.length - 1] || '';
+
+                  if (!extractedUid) {
+                    reject(new Error('Failed to extract video ID from Cloudflare Stream'));
+                    return;
+                  }
+
+                  streamVideoUrl = `https://iframe.videodelivery.net/${extractedUid}`;
+                  setUploadProgress(90);
+                  resolve();
+                },
+                onError: (error: Error) => {
+                  reject(new Error(`TUS upload failed: ${error.message}`));
+                },
               });
 
-              if (!patchResponse.ok && patchResponse.status !== 204) {
-                const errorText = await patchResponse.text().catch(() => '');
-                throw new Error(`TUS upload failed with status ${patchResponse.status}: ${errorText}`);
-            }
-
-              // Update progress (10-90%)
-              const progress = Math.min(90, 10 + Math.floor((end / totalSize) * 80));
-              setUploadProgress(progress);
-
-              // Get new offset from response
-              const newOffset = patchResponse.headers.get('Upload-Offset');
-              if (newOffset) {
-                offset = parseInt(newOffset, 10);
-              } else {
-                offset = end;
-              }
-
-              // Check for video UID in response headers
-              const streamMediaId = patchResponse.headers.get('stream-media-id');
-              if (streamMediaId && !videoUid) {
-                videoUid = streamMediaId;
-              }
-
-              // If upload is complete (status 204 and offset >= totalSize)
-              if (patchResponse.status === 204 && offset >= totalSize) {
-                break;
-              }
-            }
-
-            // If we still don't have a video UID, try to extract from URL
-            if (!videoUid) {
-              const urlParts = uploadUrl.split('/');
-              videoUid = urlParts[urlParts.length - 1] || '';
-            }
-
-            if (!videoUid) {
-              throw new Error('Failed to get video ID from Cloudflare Stream');
-            }
-
-            streamVideoUrl = `https://iframe.videodelivery.net/${videoUid}`; // Full iframe URL for Cloudflare Stream
-              setUploadProgress(90);
+              tusUpload.start();
+            });
           }
 
           if (!streamVideoUrl) {
