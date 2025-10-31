@@ -9,11 +9,11 @@ interface SpeechSubmitModalProps {
   onSuccess: () => void;
 }
 
-type SubmissionType = 'youtube' | 'audio';
+type SubmissionType = 'video' | 'audio';
 
 export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: SpeechSubmitModalProps) {
-  const [submissionType, setSubmissionType] = useState<SubmissionType>('youtube');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [submissionType, setSubmissionType] = useState<SubmissionType>('video');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -36,9 +36,50 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       }
 
       let response;
+      let youtubeUrl = '';
 
-      if (submissionType === 'youtube') {
-        // Submit YouTube URL
+      if (submissionType === 'video') {
+        // Upload video to YouTube
+        if (!videoFile) {
+          setError('Please select a video file');
+          setLoading(false);
+          return;
+        }
+
+        // Validate file size (1.5 GB)
+        const maxSize = 1.5 * 1024 * 1024 * 1024;
+        if (videoFile.size > maxSize) {
+          setError('Video file must be less than 1.5 GB');
+          setLoading(false);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('video_file', videoFile);
+
+        // Upload to YouTube (0-50% progress)
+        setUploadProgress(10);
+
+        const youtubeResponse = await fetch('/api/youtube/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        setUploadProgress(50);
+
+        const youtubeData = await youtubeResponse.json();
+
+        if (!youtubeResponse.ok) {
+          setError(youtubeData.error || 'Failed to upload video to YouTube');
+          setLoading(false);
+          return;
+        }
+
+        youtubeUrl = youtubeData.youtube_url;
+
+        // Now submit the YouTube URL to speeches
+        setUploadProgress(70);
+
         response = await fetch('/api/speeches/submit', {
           method: 'POST',
           headers: {
@@ -46,6 +87,8 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           },
           body: JSON.stringify({ speech_url: youtubeUrl }),
         });
+
+        setUploadProgress(100);
       } else {
         // Submit audio file
         if (!audioFile) {
@@ -85,7 +128,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       }
 
       // Success
-      setYoutubeUrl('');
+      setVideoFile(null);
       setAudioFile(null);
       setUploadProgress(0);
       onSuccess();
@@ -98,7 +141,20 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('video/')) {
+        setError('Please select a valid video file');
+        return;
+      }
+      setVideoFile(file);
+      setError('');
+    }
+  };
+
+  const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
@@ -112,11 +168,11 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
   };
 
   const handleClose = () => {
-    setYoutubeUrl('');
+    setVideoFile(null);
     setAudioFile(null);
     setError('');
     setUploadProgress(0);
-    setSubmissionType('youtube');
+    setSubmissionType('video');
     onClose();
   };
 
@@ -137,15 +193,15 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         <div className="flex gap-2 mb-6">
           <button
             type="button"
-            onClick={() => setSubmissionType('youtube')}
+            onClick={() => setSubmissionType('video')}
             disabled={loading}
             className="flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all disabled:opacity-50 active:scale-95"
             style={{
-              backgroundColor: submissionType === 'youtube' ? '#2C2C2C' : '#E5E5E5',
-              color: submissionType === 'youtube' ? '#F5F5F5' : '#2C2C2C'
+              backgroundColor: submissionType === 'video' ? '#2C2C2C' : '#E5E5E5',
+              color: submissionType === 'video' ? '#F5F5F5' : '#2C2C2C'
             }}
           >
-            YouTube URL
+            Upload Video
           </button>
           <button
             type="button"
@@ -162,24 +218,42 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         </div>
         
         <form onSubmit={handleSubmit}>
-          {submissionType === 'youtube' ? (
+          {submissionType === 'video' ? (
             <div className="mb-4">
-              <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-700 mb-2">
-                Unlisted YouTube URL
+              <label htmlFor="video-file" className="block text-sm font-medium text-gray-700 mb-2">
+                Video File
               </label>
               <input
-                id="youtube-url"
-                type="url"
-                value={youtubeUrl}
-                onChange={(e) => setYoutubeUrl(e.target.value)}
-                placeholder="https://youtube.com/watch?v=..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800"
+                id="video-file"
+                type="file"
+                accept="video/*"
+                onChange={handleVideoFileChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-base file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 active:file:bg-gray-300 cursor-pointer"
                 required
                 disabled={loading}
               />
+              {videoFile && (
+                <p className="text-xs text-gray-600 mt-2">
+                  Selected: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
+                </p>
+              )}
               <p className="text-xs text-gray-500 mt-1">
-                Please provide an unlisted YouTube link to your speech
+                Maximum file size: 1.5 GB. Video will be uploaded to YouTube as unlisted.
               </p>
+              
+              {uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1 text-center">
+                    {uploadProgress < 50 ? 'Uploading to YouTube...' : 'Processing...'} {uploadProgress}%
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="mb-4">
@@ -190,7 +264,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 id="audio-file"
                 type="file"
                 accept="audio/*"
-                onChange={handleFileChange}
+                onChange={handleAudioFileChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-base file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 active:file:bg-gray-300 cursor-pointer"
                 required
                 disabled={loading}

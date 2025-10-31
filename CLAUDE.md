@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an extemporaneous speeches leaderboard application built with Next.js 16, React 19, TypeScript, and Supabase. The app displays a competitive leaderboard showing speakers' rankings with both weekly and all-time speech counts. Users can log in with Google OAuth and submit their speech recordings via unlisted YouTube links or by uploading audio files directly.
+This is an extemporaneous speeches leaderboard application built with Next.js 16, React 19, TypeScript, and Supabase. The app displays a competitive leaderboard showing speakers' rankings with both weekly and all-time speech counts. Users can log in with Google OAuth and submit their speech recordings by uploading videos directly to YouTube (as unlisted) or by uploading audio files to Supabase storage.
 
 ## Development Commands
 
@@ -55,7 +55,7 @@ The application uses **Supabase** for authentication, data storage, and file sto
   - `ballots`: Stores speech reviews with multiple criteria ratings (1-10 scale), feedback text, and comparison flags
 - **Storage Buckets**:
   - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 50 MB limit)
-- **Authentication**: Google OAuth via Supabase Auth
+- **Authentication**: Google OAuth via Supabase Auth with YouTube Data API v3 scope (`https://www.googleapis.com/auth/youtube.upload`) configured in AuthButton component for video uploads
 - **Real-time**: Leaderboard and ballots update live when speeches or ballots are submitted
 - **RLS (Row Level Security)**: Enabled on all tables and storage buckets for security
 
@@ -65,6 +65,14 @@ Configuration:
 - Middleware for auth session refresh in [middleware.ts](middleware.ts)
 
 ### API Routes
+
+- **POST /api/youtube/upload**: Upload video to YouTube
+  - Accepts multipart/form-data with video file
+  - Validates file type (video/*) and size (max 1.5 GB)
+  - Uses YouTube Data API v3 to upload video as unlisted
+  - Returns YouTube video URL
+  - Requires authentication and YouTube upload permission
+  - Uses OAuth access token from Supabase session
 
 - **POST /api/speeches/submit**: Submit a new speech with YouTube URL or audio file
   - Accepts either JSON (YouTube URL) or multipart/form-data (audio file upload)
@@ -114,9 +122,9 @@ The application features:
   - Shows user state
   
 - **SpeechSubmitModal Component** ([app/components/SpeechSubmitModal.tsx](app/components/SpeechSubmitModal.tsx)):
-  - Tabbed interface for choosing between YouTube URL or audio upload
-  - YouTube tab: URL input with validation
-  - Audio upload tab: File input with drag-and-drop, progress indicator, size validation (max 50 MB)
+  - Tabbed interface for choosing between video upload or audio upload
+  - Upload Video tab: File input for video files (max 1.5 GB), uploads directly to YouTube as unlisted, shows progress indicator
+  - Upload Audio tab: File input for audio files (max 50 MB), uploads to Supabase Storage, shows progress indicator
   - Client-side and server-side validation
   - Duplicate detection
 
@@ -135,6 +143,7 @@ The application features:
 
 - **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal)
 - **app/api/**: API route handlers for backend operations
+  - `youtube/upload/`: YouTube video upload endpoint (uses YouTube Data API v3)
   - `speeches/`: Fetch speeches for ballot selection
   - `speeches/submit/`: Speech submission endpoint
   - `ballots/submit/`: Ballot submission endpoint
