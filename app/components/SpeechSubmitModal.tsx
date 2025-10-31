@@ -9,25 +9,27 @@ interface SpeechSubmitModalProps {
   onSuccess: () => void;
 }
 
-type SubmissionType = 'video' | 'audio' | 'youtube-link';
+type SubmissionType = 'video' | 'audio' | 'stream-link';
 
 export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: SpeechSubmitModalProps) {
   const [submissionType, setSubmissionType] = useState<SubmissionType>('video');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [streamUrl, setStreamUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const supabase = createClient();
 
-  // Validate YouTube URL format
-  const isValidYouTubeUrl = (url: string): boolean => {
+  // Validate Cloudflare Stream URL format
+  const isValidCloudflareStreamUrl = (url: string): boolean => {
+    // Accept Cloudflare Stream URLs or video UIDs
     const patterns = [
-      /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
-      /^https?:\/\/youtu\.be\/[\w-]+/,
+      /^https?:\/\/.*\.cloudflarestream\.com\/[\w-]+\/watch/,
+      /^https?:\/\/.*\.videodelivery\.net\/[\w-]+/,
+      /^[\w-]+$/, // Just a video UID
     ];
-    return patterns.some(pattern => pattern.test(url));
+    return patterns.some(pattern => pattern.test(url.trim()));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,10 +48,10 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       }
 
       let response;
-      let youtubeUrl = '';
+      let streamVideoUrl = '';
 
       if (submissionType === 'video') {
-        // Upload video to YouTube using client-side direct upload
+        // Upload video to Cloudflare Stream
         if (!videoFile) {
           setError('Please select a video file');
           setLoading(false);
@@ -64,12 +66,12 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           return;
         }
 
-        // Step 1: Initialize YouTube upload (get upload URL)
+        // Step 1: Initialize Cloudflare Stream upload (get upload URL)
         setUploadProgress(5);
 
         let initResponse;
         try {
-          initResponse = await fetch('/api/youtube/init', {
+          initResponse = await fetch('/api/cloudflare-stream/init', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -84,129 +86,129 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           const initData = await initResponse.json();
 
           if (!initResponse.ok) {
-            setError(initData.error || 'Failed to initialize YouTube upload');
+            setError(initData.error || 'Failed to initialize Cloudflare Stream upload');
             setLoading(false);
             return;
           }
 
           setUploadProgress(10);
 
-          // Step 2: Upload file directly to YouTube using resumable upload (Blob.slice loop)
+          // Step 2: Upload file directly to Cloudflare Stream
           const uploadUrl = initData.upload_url;
-          const chunkSize = 5 * 1024 * 1024; // 5MB chunks
-          const totalSize = videoFile.size;
-          let start = 0;
+          const uploadType = initData.upload_type;
+          const videoUid = initData.uid; // For direct uploads, UID is provided immediately
 
-          const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+          if (uploadType === 'direct' && videoUid) {
+            // Direct upload for files <=200MB
+            // Upload file using POST
+            const formData = new FormData();
+            formData.append('file', videoFile);
 
-          const probePosition = async (): Promise<number | null> => {
-            const probe = await fetch(uploadUrl, {
-              method: 'PUT',
+            const uploadResponse = await fetch(uploadUrl, {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!uploadResponse.ok) {
+              throw new Error('Failed to upload video to Cloudflare Stream');
+            }
+
+            // Construct playback URL from UID
+            streamVideoUrl = videoUid; // Store UID, can construct full URL later if needed
+            setUploadProgress(90);
+          } else {
+            // TUS resumable upload for files >200MB
+            // The upload session is already created on the server
+            // Implement TUS PATCH requests manually
+            const chunkSize = 5 * 1024 * 1024; // 5MB chunks
+            const totalSize = videoFile.size;
+            let offset = 0;
+            let videoUid = '';
+
+            // First, check current upload offset
+            const headResponse = await fetch(uploadUrl, {
+              method: 'HEAD',
               headers: {
-                'Content-Range': `bytes */${totalSize}`,
+                'Tus-Resumable': '1.0.0',
               },
             });
-            if (probe.status === 308) {
-              const rangeHeader = probe.headers.get('Range');
-              const match = rangeHeader?.match(/bytes=0-(\d+)/);
-              if (match) return parseInt(match[1], 10) + 1;
-              return 0;
-            }
-            return null;
-          };
 
-          const putChunk = async (
-            startByte: number,
-            endByte: number,
-            attempt = 0
-          ): Promise<{ nextStart: number; finished: boolean; videoId?: string }> => {
-            const body = videoFile.slice(startByte, endByte);
-            const contentRange = `bytes ${startByte}-${endByte - 1}/${totalSize}`;
-            let response: Response;
-            try {
-              response = await fetch(uploadUrl, {
-                method: 'PUT',
+            if (headResponse.ok) {
+              const uploadOffset = headResponse.headers.get('Upload-Offset');
+              if (uploadOffset) {
+                offset = parseInt(uploadOffset, 10);
+              }
+              // Get video UID from header if available
+              const streamMediaId = headResponse.headers.get('stream-media-id');
+              if (streamMediaId) {
+                videoUid = streamMediaId;
+              }
+            }
+
+            // Upload chunks using PATCH
+            while (offset < totalSize) {
+              const end = Math.min(offset + chunkSize, totalSize);
+              const chunk = videoFile.slice(offset, end);
+              
+              const patchResponse = await fetch(uploadUrl, {
+                method: 'PATCH',
                 headers: {
-                  'Content-Type': 'application/octet-stream',
-                  'Content-Length': String(endByte - startByte),
-                  'Content-Range': contentRange,
+                  'Tus-Resumable': '1.0.0',
+                  'Content-Type': 'application/offset+octet-stream',
+                  'Upload-Offset': offset.toString(),
+                  'Content-Length': (end - offset).toString(),
                 },
-                body,
+                body: chunk,
               });
-            } catch (networkErr: any) {
-              if (attempt < 5) {
-                await sleep(250 * Math.pow(2, attempt));
-                return putChunk(startByte, endByte, attempt + 1);
-              }
-              throw new Error(networkErr?.message || 'Network error during upload');
-            }
 
-            // Update progress (10-90%) using acknowledged endByte
-            const acknowledged = Math.min(endByte, totalSize);
-            const progressPercent = Math.min(90, 10 + Math.floor((acknowledged / totalSize) * 80));
-            setUploadProgress(progressPercent);
-
-            if (response.status === 308) {
-              const rangeHeader = response.headers.get('Range');
-              if (rangeHeader) {
-                const match = rangeHeader.match(/bytes=0-(\d+)/);
-                const lastByte = match ? parseInt(match[1], 10) : endByte - 1;
-                const nextStart = lastByte + 1;
-                if (nextStart < endByte) {
-                  // Server only accepted partial chunk; resend remaining part
-                  return putChunk(nextStart, endByte, attempt);
-                }
-                return { nextStart, finished: false };
+              if (!patchResponse.ok && patchResponse.status !== 204) {
+                const errorText = await patchResponse.text().catch(() => '');
+                throw new Error(`TUS upload failed with status ${patchResponse.status}: ${errorText}`);
               }
 
-              // Missing Range; probe current position
-              const probed = await probePosition();
-              if (probed !== null) {
-                if (probed < endByte) {
-                  return putChunk(probed, endByte, attempt);
-                }
-                return { nextStart: probed, finished: false };
+              // Update progress (10-90%)
+              const progress = Math.min(90, 10 + Math.floor((end / totalSize) * 80));
+              setUploadProgress(progress);
+
+              // Get new offset from response
+              const newOffset = patchResponse.headers.get('Upload-Offset');
+              if (newOffset) {
+                offset = parseInt(newOffset, 10);
+              } else {
+                offset = end;
               }
 
-              // Fallback advance by chunk size
-              return { nextStart: endByte, finished: false };
-            }
-
-            if (response.status === 200 || response.status === 201) {
-              const videoData = await response.json();
-              const videoId = videoData?.id;
-              if (!videoId) {
-                throw new Error('Failed to get video ID from YouTube');
+              // Check for video UID in response headers
+              const streamMediaId = patchResponse.headers.get('stream-media-id');
+              if (streamMediaId && !videoUid) {
+                videoUid = streamMediaId;
               }
-              return { nextStart: totalSize, finished: true, videoId };
+
+              // If upload is complete (status 204 and offset >= totalSize)
+              if (patchResponse.status === 204 && offset >= totalSize) {
+                break;
+              }
             }
 
-            // Retry on 5xx
-            if (response.status >= 500 && attempt < 5) {
-              await sleep(250 * Math.pow(2, attempt));
-              return putChunk(startByte, endByte, attempt + 1);
+            // If we still don't have a video UID, try to extract from URL
+            if (!videoUid) {
+              const urlParts = uploadUrl.split('/');
+              videoUid = urlParts[urlParts.length - 1] || '';
             }
 
-            const errBody = await response.text().catch(() => '');
-            throw new Error(`Upload failed with status ${response.status}: ${errBody?.slice(0, 200)}`);
-          };
-
-          while (start < totalSize) {
-            const end = Math.min(start + chunkSize, totalSize);
-            const result = await putChunk(start, end);
-            if (result.finished) {
-              youtubeUrl = `https://www.youtube.com/watch?v=${result.videoId}`;
-              setUploadProgress(90);
-              break;
+            if (!videoUid) {
+              throw new Error('Failed to get video ID from Cloudflare Stream');
             }
-            start = result.nextStart;
+
+            streamVideoUrl = videoUid;
+            setUploadProgress(90);
           }
 
-          if (!youtubeUrl) {
-            throw new Error('Upload incomplete - failed to complete chunked upload');
+          if (!streamVideoUrl) {
+            throw new Error('Upload incomplete - failed to get video ID');
           }
 
-          // Now submit the YouTube URL to speeches
+          // Now submit the Stream video URL/UID to speeches
           setUploadProgress(95);
 
           response = await fetch('/api/speeches/submit', {
@@ -214,15 +216,16 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ speech_url: youtubeUrl }),
+            body: JSON.stringify({ speech_url: streamVideoUrl }),
           });
 
           setUploadProgress(100);
-        } catch (fetchError: any) {
-          if (fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('SSL') || fetchError.message?.includes('ERR_SSL')) {
+        } catch (fetchError: unknown) {
+          const error = fetchError as { message?: string };
+          if (error.message?.includes('Failed to fetch') || error.message?.includes('SSL') || error.message?.includes('ERR_SSL')) {
             setError('Connection error during upload - this can happen with large files. Please try again or use a smaller file.');
           } else {
-            setError(fetchError.message || 'Failed to upload video to YouTube');
+            setError(error.message || 'Failed to upload video to Cloudflare Stream');
           }
           setLoading(false);
           return;
@@ -256,16 +259,16 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
         setUploadProgress(100);
       } else {
-        // Submit YouTube link
-        if (!youtubeUrl.trim()) {
-          setError('Please enter a YouTube URL');
+        // Submit Cloudflare Stream link
+        if (!streamUrl.trim()) {
+          setError('Please enter a Cloudflare Stream URL or video UID');
           setLoading(false);
           return;
         }
 
-        // Validate YouTube URL format
-        if (!isValidYouTubeUrl(youtubeUrl.trim())) {
-          setError('Invalid YouTube URL format. Please provide a valid YouTube link (e.g., https://www.youtube.com/watch?v=...)');
+        // Validate Cloudflare Stream URL format
+        if (!isValidCloudflareStreamUrl(streamUrl.trim())) {
+          setError('Invalid Cloudflare Stream URL format. Please provide a valid Stream URL or video UID.');
           setLoading(false);
           return;
         }
@@ -277,7 +280,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ speech_url: youtubeUrl.trim() }),
+          body: JSON.stringify({ speech_url: streamUrl.trim() }),
         });
 
         setUploadProgress(100);
@@ -294,7 +297,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       // Success
       setVideoFile(null);
       setAudioFile(null);
-      setYoutubeUrl('');
+      setStreamUrl('');
       setUploadProgress(0);
       onSuccess();
       onClose();
@@ -332,15 +335,15 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     }
   };
 
-  const handleYoutubeUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setYoutubeUrl(e.target.value);
+  const handleStreamUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setStreamUrl(e.target.value);
     setError('');
   };
 
   const handleClose = () => {
     setVideoFile(null);
     setAudioFile(null);
-    setYoutubeUrl('');
+    setStreamUrl('');
     setError('');
     setUploadProgress(0);
     setSubmissionType('video');
@@ -377,16 +380,16 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           </button>
           <button
             type="button"
-            onClick={() => setSubmissionType('youtube-link')}
+            onClick={() => setSubmissionType('stream-link')}
             disabled={loading}
             className="flex-1 px-3 py-3 brutal-border rounded-lg font-bold text-xs transition-all disabled:opacity-50"
             style={{
-              backgroundColor: submissionType === 'youtube-link' ? 'var(--primary)' : '#ffffff',
-              color: submissionType === 'youtube-link' ? '#ffffff' : '#1a1a1a',
-              boxShadow: submissionType === 'youtube-link' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
+              backgroundColor: submissionType === 'stream-link' ? 'var(--primary)' : '#ffffff',
+              color: submissionType === 'stream-link' ? '#ffffff' : '#1a1a1a',
+              boxShadow: submissionType === 'stream-link' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
             }}
           >
-            YouTube Link
+            Stream Link
           </button>
           <button
             type="button"
@@ -428,7 +431,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 </p>
               )}
               <p className="text-xs mt-1" style={{ color: '#666' }}>
-                Maximum file size: 1.5 GB. Video will be uploaded to YouTube as unlisted.
+                Maximum file size: 1.5 GB. Video will be uploaded to Cloudflare Stream.
               </p>
 
               {uploadProgress > 0 && uploadProgress < 100 && (
@@ -443,22 +446,22 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                     ></div>
                   </div>
                   <p className="text-xs font-bold mt-1 text-center" style={{ color: '#1a1a1a' }}>
-                    {uploadProgress < 50 ? 'Uploading video to YouTube (this may take a while for large files)...' : uploadProgress < 70 ? 'Processing upload...' : 'Submitting speech...'} {uploadProgress}%
+                    {uploadProgress < 50 ? 'Uploading video to Cloudflare Stream (this may take a while for large files)...' : uploadProgress < 70 ? 'Processing upload...' : 'Submitting speech...'} {uploadProgress}%
                   </p>
                 </div>
               )}
             </div>
-          ) : submissionType === 'youtube-link' ? (
+          ) : submissionType === 'stream-link' ? (
             <div className="mb-4">
-              <label htmlFor="youtube-url" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
-                YouTube URL
+              <label htmlFor="stream-url" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
+                Cloudflare Stream URL or Video UID
               </label>
               <input
-                id="youtube-url"
-                type="url"
-                value={youtubeUrl}
-                onChange={handleYoutubeUrlChange}
-                placeholder="https://www.youtube.com/watch?v=..."
+                id="stream-url"
+                type="text"
+                value={streamUrl}
+                onChange={handleStreamUrlChange}
+                placeholder="https://customer-xxx.cloudflarestream.com/xxx/watch or video-uid"
                 className="w-full px-4 py-3 brutal-border rounded-lg text-sm"
                 style={{
                   color: '#1a1a1a',
@@ -468,7 +471,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 disabled={loading}
               />
               <p className="text-xs mt-1" style={{ color: '#666' }}>
-                Paste a YouTube link to an existing video (e.g., https://www.youtube.com/watch?v=... or https://youtu.be/...)
+                Paste a Cloudflare Stream URL or video UID (e.g., https://customer-xxx.cloudflarestream.com/xxx/watch)
               </p>
 
               {uploadProgress > 0 && uploadProgress < 100 && (

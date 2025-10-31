@@ -12,13 +12,15 @@ function getWeekStartDate(date: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-// Validate YouTube URL
-function isValidYouTubeUrl(url: string): boolean {
+// Validate Cloudflare Stream URL or UID
+function isValidCloudflareStreamUrl(url: string): boolean {
+  // Accept Cloudflare Stream URLs or video UIDs
   const patterns = [
-    /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
-    /^https?:\/\/youtu\.be\/[\w-]+/,
+    /^https?:\/\/.*\.cloudflarestream\.com\/[\w-]+\/watch/,
+    /^https?:\/\/.*\.videodelivery\.net\/[\w-]+/,
+    /^[\w-]+$/, // Just a video UID
   ];
-  return patterns.some(pattern => pattern.test(url));
+  return patterns.some(pattern => pattern.test(url.trim()));
 }
 
 export async function POST(request: Request) {
@@ -93,22 +95,22 @@ export async function POST(request: Request) {
 
       speechUrl = publicUrl;
     } 
-    // Handle application/json (YouTube URL)
+    // Handle application/json (Cloudflare Stream URL or UID)
     else {
       const body = await request.json();
       const { speech_url } = body;
 
       if (!speech_url) {
         return NextResponse.json(
-          { error: 'YouTube URL is required' },
+          { error: 'Cloudflare Stream URL or video UID is required' },
           { status: 400 }
         );
       }
 
-      // Validate YouTube URL format
-      if (!isValidYouTubeUrl(speech_url)) {
+      // Validate Cloudflare Stream URL format
+      if (!isValidCloudflareStreamUrl(speech_url)) {
         return NextResponse.json(
-          { error: 'Invalid YouTube URL format. Please provide a valid YouTube link.' },
+          { error: 'Invalid Cloudflare Stream URL format. Please provide a valid Stream URL or video UID.' },
           { status: 400 }
         );
       }

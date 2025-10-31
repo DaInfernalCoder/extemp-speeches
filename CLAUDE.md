@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an extemporaneous speeches leaderboard application built with Next.js 16, React 19, TypeScript, and Supabase. The app displays a competitive leaderboard showing speakers' rankings with both weekly and all-time speech counts. Users can log in with Google OAuth and submit their speech recordings by uploading videos directly to YouTube (as unlisted) or by uploading audio files to Supabase storage.
+This is an extemporaneous speeches leaderboard application built with Next.js 16, React 19, TypeScript, and Supabase. The app displays a competitive leaderboard showing speakers' rankings with both weekly and all-time speech counts. Users can log in with Google OAuth and submit their speech recordings by uploading videos directly to Cloudflare Stream or by uploading audio files to Supabase storage.
 
 ## Development Commands
 
@@ -103,7 +103,7 @@ The application uses **Supabase** for authentication, data storage, and file sto
   - `feature_requests`: Stores user-submitted feature requests with title and description
 - **Storage Buckets**:
   - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 50 MB limit)
-- **Authentication**: Google OAuth via Supabase Auth with YouTube Data API v3 scope (`https://www.googleapis.com/auth/youtube.upload`) configured in AuthButton component for video uploads
+- **Authentication**: Google OAuth via Supabase Auth (no provider-specific scopes required - used for authentication only)
 - **Real-time**: Leaderboard and ballots update live when speeches or ballots are submitted
 - **RLS (Row Level Security)**: Enabled on all tables and storage buckets for security
 
@@ -133,21 +133,21 @@ The application uses **Resend** for email delivery:
 
 ### API Routes
 
-- **POST /api/youtube/init**: Initialize YouTube resumable upload (NEW - Preferred)
+- **POST /api/cloudflare-stream/init**: Initialize Cloudflare Stream upload
   - Accepts JSON with file metadata (fileName, fileSize, fileType)
   - Validates file type (video/*) and size (max 1.5 GB)
-  - Initializes YouTube resumable upload session with metadata
-  - Returns upload URL to client for direct upload
-  - Handles token refresh automatically if OAuth token expires
+  - For files <=200MB: Creates Direct Creator Upload URL (simple POST upload)
+  - For files >200MB: Creates TUS resumable upload session
+  - Returns upload URL and upload type (direct/tus) to client
   - Fast endpoint (~1-2 seconds) - only initializes upload
-  - Requires authentication and YouTube upload permission
-  - Uses OAuth access token from Supabase session
+  - Requires authentication
+  - Uses CLOUDFLARE_STREAM_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from environment
   - Configured with maxDuration of 60 seconds
-  - Client uploads file directly to YouTube (bypasses server timeout limits)
+  - Client uploads file directly to Cloudflare Stream (bypasses server timeout limits)
 
-- **POST /api/speeches/submit**: Submit a new speech with YouTube URL or audio file
-  - Accepts either JSON (YouTube URL) or multipart/form-data (audio file upload)
-  - For YouTube: Validates URL format
+- **POST /api/speeches/submit**: Submit a new speech with Cloudflare Stream URL/UID or audio file
+  - Accepts either JSON (Cloudflare Stream URL or video UID) or multipart/form-data (audio file upload)
+  - For Cloudflare Stream: Validates URL format (accepts cloudflarestream.com URLs, videodelivery.net URLs, or video UIDs)
   - For audio: Validates file type and size (max 50 MB), uploads to Supabase Storage
   - Checks for duplicate URLs per user
   - Calculates week start date (Monday)
@@ -217,7 +217,7 @@ The application features:
   - Displays weekly and all-time speech counts
   - Podium visualization for top 3 speakers
   - Responsive table layout for all entries
-  - Links to speech recordings (YouTube or audio files)
+  - Links to speech recordings (Cloudflare Stream videos or audio files)
   - Displays ballots column with expandable ballot details
   - Shows reviewer names and rating criteria (gestures, delivery, pauses, content, entertaining)
   - Displays "better than last" indicator and feedback text
@@ -228,14 +228,15 @@ The application features:
   - Shows user state
   
 - **SpeechSubmitModal Component** ([app/components/SpeechSubmitModal.tsx](app/components/SpeechSubmitModal.tsx)):
-  - Tabbed interface for choosing between video upload, YouTube link, or audio upload
-  - Upload Video tab: File input for video files (max 1.5 GB), uses client-side direct upload to YouTube
-    - Calls `/api/youtube/init` to get upload URL (fast, ~1-2 seconds)
-    - Uploads file directly from browser to YouTube using resumable upload protocol (5MB chunks)
+  - Tabbed interface for choosing between video upload, Stream link, or audio upload
+  - Upload Video tab: File input for video files (max 1.5 GB), uses client-side direct upload to Cloudflare Stream
+    - Calls `/api/cloudflare-stream/init` to get upload URL (fast, ~1-2 seconds)
+    - For files <=200MB: Direct POST upload to Cloudflare Stream upload URL
+    - For files >200MB: TUS resumable upload protocol (5MB chunks using PATCH requests)
     - Real-time progress tracking (10-90% for upload, 95% for speech submission)
-    - No server timeout limits (upload happens client → YouTube directly)
-    - Video uploaded as unlisted on YouTube
-  - YouTube Link tab: Text input for pasting existing YouTube URLs, validates URL format, submits directly to speeches API
+    - No server timeout limits (upload happens client → Cloudflare Stream directly)
+    - Extracts video UID from response headers or upload URL
+  - Stream Link tab: Text input for pasting existing Cloudflare Stream URLs or video UIDs, validates format, submits directly to speeches API
   - Upload Audio tab: File input for audio files (max 50 MB), uploads to Supabase Storage, shows progress indicator
   - Client-side and server-side validation
   - Duplicate detection
@@ -272,7 +273,7 @@ The application features:
 
 - **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, BallotViewModal, FeatureRequestModal)
 - **app/api/**: API route handlers for backend operations
-  - `youtube/init/`: YouTube resumable upload initialization (preferred)
+  - `cloudflare-stream/init/`: Cloudflare Stream upload initialization
   - `speeches/`: Fetch speeches for ballot selection
   - `speeches/submit/`: Speech submission endpoint
   - `ballots/submit/`: Ballot submission endpoint
