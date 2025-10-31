@@ -117,7 +117,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             }
 
             // Construct playback URL from UID
-            streamVideoUrl = videoUid; // Store UID, can construct full URL later if needed
+            streamVideoUrl = `https://iframe.videodelivery.net/${videoUid}`; // Full iframe URL for Cloudflare Stream
             setUploadProgress(90);
           } else {
             // TUS resumable upload for files >200MB
@@ -203,7 +203,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
               throw new Error('Failed to get video ID from Cloudflare Stream');
             }
 
-            streamVideoUrl = videoUid;
+            streamVideoUrl = `https://iframe.videodelivery.net/${videoUid}`; // Full iframe URL for Cloudflare Stream
               setUploadProgress(90);
           }
 
