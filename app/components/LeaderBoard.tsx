@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import AuthButton from './AuthButton';
 import SpeechSubmitModal from './SpeechSubmitModal';
 import BallotSubmitModal from './BallotSubmitModal';
+import BallotViewModal from './BallotViewModal';
+import FeatureRequestModal from './FeatureRequestModal';
 import type { User } from '@supabase/supabase-js';
 
 interface Ballot {
@@ -100,8 +102,10 @@ const LeaderBoard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBallotModalOpen, setIsBallotModalOpen] = useState(false);
+  const [isFeatureRequestModalOpen, setIsFeatureRequestModalOpen] = useState(false);
+  const [isBallotViewModalOpen, setIsBallotViewModalOpen] = useState(false);
+  const [selectedBallots, setSelectedBallots] = useState<Ballot[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [expandedSpeech, setExpandedSpeech] = useState<string | null>(null);
   const supabase = createClient();
 
   const fetchLeaderboard = async () => {
@@ -164,12 +168,21 @@ const LeaderBoard: React.FC = () => {
     setIsBallotModalOpen(true);
   };
 
+  const handleFeatureRequest = () => {
+    if (!user) {
+      alert('Please log in to submit a feature request');
+      return;
+    }
+    setIsFeatureRequestModalOpen(true);
+  };
+
   const handleModalSuccess = () => {
     fetchLeaderboard();
   };
 
-  const toggleBallotExpansion = (speechId: string) => {
-    setExpandedSpeech(expandedSpeech === speechId ? null : speechId);
+  const openBallotViewModal = (ballots: Ballot[]) => {
+    setSelectedBallots(ballots);
+    setIsBallotViewModalOpen(true);
   };
 
   const podiumData: PodiumData[] = leaderboardData.slice(0, 3).map((entry, index) => ({
@@ -192,7 +205,18 @@ const LeaderBoard: React.FC = () => {
         onClose={() => setIsBallotModalOpen(false)}
         onSuccess={handleModalSuccess}
       />
-      
+      <FeatureRequestModal
+        isOpen={isFeatureRequestModalOpen}
+        onClose={() => setIsFeatureRequestModalOpen(false)}
+        onSuccess={handleModalSuccess}
+      />
+      <BallotViewModal
+        isOpen={isBallotViewModalOpen}
+        onClose={() => setIsBallotViewModalOpen(false)}
+        ballots={selectedBallots}
+        speechTitle=""
+      />
+
       <div
         className="min-h-screen p-4 sm:p-8"
         style={{
@@ -221,6 +245,16 @@ const LeaderBoard: React.FC = () => {
             }}
           >
             Make a Ballot
+          </button>
+          <button
+            onClick={handleFeatureRequest}
+            className="px-6 py-3 rounded-lg font-normal text-base hover:opacity-90 transition-opacity"
+            style={{
+              backgroundColor: '#2C2C2C',
+              color: '#F5F5F5'
+            }}
+          >
+            Feature Request
           </button>
           <AuthButton />
         </div>
@@ -364,44 +398,16 @@ const LeaderBoard: React.FC = () => {
                       {entry.speech_details && entry.speech_details.length > 0 ? (
                         entry.speech_details.map((speechDetail, speechIndex) => {
                           const ballotCount = speechDetail.ballots?.length || 0;
-                          const speechId = speechDetail.speech_id;
-                          const isExpanded = expandedSpeech === speechId;
-                          
+
                           return (
                             <div key={speechIndex} className="text-sm">
                               {ballotCount > 0 ? (
-                                <div>
-                                  <button
-                                    onClick={() => toggleBallotExpansion(speechId)}
-                                    className="text-blue-600 hover:text-blue-800 active:text-blue-900 transition-colors text-left py-2 px-2 -ml-2 rounded hover:bg-blue-50 active:bg-blue-100"
-                                  >
-                                    {ballotCount} ballot{ballotCount !== 1 ? 's' : ''}
-                                  </button>
-                                  {isExpanded && (
-                                    <div className="mt-2 space-y-2 pl-2 border-l-2 border-gray-200">
-                                      {speechDetail.ballots.map((ballot, ballotIndex) => (
-                                        <div key={ballotIndex} className="text-xs text-gray-700 bg-gray-50 p-2 rounded">
-                                          <div className="font-medium mb-1">Reviewed by {ballot.reviewer_name}</div>
-                                          <div className="space-y-0.5">
-                                            <div>Gestures: {ballot.gestures}/10</div>
-                                            <div>Delivery: {ballot.delivery}/10</div>
-                                            <div>Pauses: {ballot.pauses}/10</div>
-                                            <div>Content: {ballot.content}/10</div>
-                                            <div>Entertaining: {ballot.entertaining}/10</div>
-                                            {ballot.better_than_last && (
-                                              <div className="text-green-600 font-medium">✓ Better than last</div>
-                                            )}
-                                            {ballot.feedback_text && (
-                                              <div className="mt-1 pt-1 border-t border-gray-200">
-                                                <span className="font-medium">Feedback:</span> {ballot.feedback_text}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                <button
+                                  onClick={() => openBallotViewModal(speechDetail.ballots)}
+                                  className="text-blue-600 hover:text-blue-800 active:text-blue-900 transition-colors text-left py-2 px-2 -ml-2 rounded hover:bg-blue-50 active:bg-blue-100"
+                                >
+                                  {ballotCount} ballot{ballotCount !== 1 ? 's' : ''}
+                                </button>
                               ) : (
                                 <span className="text-gray-400">—</span>
                               )}
@@ -449,9 +455,7 @@ const LeaderBoard: React.FC = () => {
                       <div className="space-y-2">
                         {entry.speech_details.map((speechDetail, urlIndex) => {
                           const ballotCount = speechDetail.ballots?.length || 0;
-                          const speechId = speechDetail.speech_id;
-                          const isExpanded = expandedSpeech === speechId;
-                          
+
                           return (
                             <div key={urlIndex} className="flex flex-col gap-1">
                               <div className="flex items-center gap-2">
@@ -465,37 +469,13 @@ const LeaderBoard: React.FC = () => {
                                 </a>
                                 {ballotCount > 0 && (
                                   <button
-                                    onClick={() => toggleBallotExpansion(speechId)}
+                                    onClick={() => openBallotViewModal(speechDetail.ballots)}
                                     className="text-xs text-gray-600 hover:text-gray-800 active:text-gray-900 py-2 px-2 -ml-2 rounded hover:bg-gray-50 active:bg-gray-100"
                                   >
                                     ({ballotCount} ballot{ballotCount !== 1 ? 's' : ''})
                                   </button>
                                 )}
                               </div>
-                              {isExpanded && ballotCount > 0 && (
-                                <div className="mt-1 space-y-2 pl-2 border-l-2 border-gray-200">
-                                  {speechDetail.ballots.map((ballot, ballotIndex) => (
-                                    <div key={ballotIndex} className="text-xs text-gray-700 bg-gray-50 p-2 rounded">
-                                      <div className="font-medium mb-1">Reviewed by {ballot.reviewer_name}</div>
-                                      <div className="space-y-0.5">
-                                        <div>Gestures: {ballot.gestures}/10</div>
-                                        <div>Delivery: {ballot.delivery}/10</div>
-                                        <div>Pauses: {ballot.pauses}/10</div>
-                                        <div>Content: {ballot.content}/10</div>
-                                        <div>Entertaining: {ballot.entertaining}/10</div>
-                                        {ballot.better_than_last && (
-                                          <div className="text-green-600 font-medium">✓ Better than last</div>
-                                        )}
-                                        {ballot.feedback_text && (
-                                          <div className="mt-1 pt-1 border-t border-gray-200">
-                                            <span className="font-medium">Feedback:</span> {ballot.feedback_text}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
                             </div>
                           );
                         })}

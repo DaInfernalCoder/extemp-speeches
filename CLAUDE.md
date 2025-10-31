@@ -53,6 +53,7 @@ The application uses **Supabase** for authentication, data storage, and file sto
   - `users`: Stores user profiles (synced with auth.users)
   - `speeches`: Stores speech submissions with speech URLs and week tracking
   - `ballots`: Stores speech reviews with multiple criteria ratings (1-10 scale), feedback text, and comparison flags
+  - `feature_requests`: Stores user-submitted feature requests with title and description
 - **Storage Buckets**:
   - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 50 MB limit)
 - **Authentication**: Google OAuth via Supabase Auth with YouTube Data API v3 scope (`https://www.googleapis.com/auth/youtube.upload`) configured in AuthButton component for video uploads
@@ -107,6 +108,12 @@ Configuration:
   - Sorted by all-time speeches (descending)
   - Includes user profiles with avatars and speech URLs
 
+- **POST /api/feature-requests/submit**: Submit a feature request
+  - Accepts JSON with title and description
+  - Validates title (required, max 200 characters) and description (required, max 5000 characters)
+  - Inserts into `feature_requests` table
+  - Requires authentication
+
 ### Current State
 
 The application features:
@@ -120,6 +127,7 @@ The application features:
   - Displays ballots column with expandable ballot details
   - Shows reviewer names and rating criteria (gestures, delivery, pauses, content, entertaining)
   - Displays "better than last" indicator and feedback text
+  - Top buttons for "New Speech", "Make a Ballot", "Feature Request", and authentication
   
 - **AuthButton Component** ([app/components/AuthButton.tsx](app/components/AuthButton.tsx)):
   - Google OAuth login/logout
@@ -142,16 +150,25 @@ The application features:
   - Form validation and submission
   - Prevents reviewing own speeches
 
+- **FeatureRequestModal Component** ([app/components/FeatureRequestModal.tsx](app/components/FeatureRequestModal.tsx)):
+  - Title input field (required, max 200 characters) with character counter
+  - Description textarea (required, max 5000 characters) with character counter
+  - Form validation (client and server-side)
+  - Loading states and error handling
+  - Cancel and Submit buttons matching ballot modal styling
+  - Requires authentication before submission
+
 ## Code Organization
 
 ### Directory Structure
 
-- **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal)
+- **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, FeatureRequestModal)
 - **app/api/**: API route handlers for backend operations
   - `youtube/upload/`: YouTube video upload endpoint (uses YouTube Data API v3)
   - `speeches/`: Fetch speeches for ballot selection
   - `speeches/submit/`: Speech submission endpoint
   - `ballots/submit/`: Ballot submission endpoint
+  - `feature-requests/submit/`: Feature request submission endpoint
   - `leaderboard/`: Leaderboard data endpoint
 - **app/auth/callback/**: OAuth callback handler for Supabase
 - **lib/supabase/**: Supabase client utilities
