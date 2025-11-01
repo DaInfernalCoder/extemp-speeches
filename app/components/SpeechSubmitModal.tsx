@@ -198,12 +198,16 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
         // Check YouTube authentication if YouTube is selected
         if (uploadDestination === 'youtube') {
+          console.log('[DEBUG] Checking YouTube upload scope...');
           const hasScope = await hasYouTubeUploadScope();
+          console.log('[DEBUG] YouTube upload scope check result:', hasScope);
           if (!hasScope) {
+            console.log('[DEBUG] Showing YouTube auth popup - scope missing');
             setShowAuthPopup(true);
             setLoading(false);
             return;
           }
+          console.log('[DEBUG] YouTube upload scope verified - proceeding with upload');
         }
 
         // Initialize upload (Cloudflare Stream or YouTube)
