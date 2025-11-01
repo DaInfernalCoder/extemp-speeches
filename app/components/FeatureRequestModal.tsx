@@ -20,16 +20,6 @@ interface FeatureRequest {
   };
 }
 
-interface FeatureRequestWithUser {
-  id: string;
-  title: string;
-  description: string;
-  created_at: string;
-  users: {
-    name: string | null;
-    email: string;
-  } | null;
-}
 
 type Tab = 'submit' | 'view';
 
@@ -128,42 +118,25 @@ export default function FeatureRequestModal({ isOpen, onClose, onSuccess }: Feat
   const fetchFeatureRequests = useCallback(async () => {
     setLoadingRequests(true);
     try {
-      const { data: featureRequests, error } = await supabase
-        .from('feature_requests')
-        .select(`
-          id,
-          title,
-          description,
-          created_at,
-          users!user_id (
-            name,
-            email
-          )
-        `)
-        .order('created_at', { ascending: false });
+      const response = await fetch('/api/feature-requests', {
+        cache: 'no-store',
+      });
       
-      if (error) {
-        console.error('Error fetching feature requests:', error);
-      } else {
-        // Transform the data to match the expected interface
-        const transformed = (featureRequests || []).map((req: FeatureRequestWithUser) => ({
-          id: req.id,
-          title: req.title,
-          description: req.description,
-          created_at: req.created_at,
-          user: {
-            name: req.users?.name || null,
-            email: req.users?.email || '',
-          },
-        }));
-        setFeatureRequests(transformed);
+      if (!response.ok) {
+        console.error('Error fetching feature requests:', response.statusText);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.featureRequests) {
+        setFeatureRequests(data.featureRequests);
       }
     } catch (err) {
       console.error('Error fetching feature requests:', err);
     } finally {
       setLoadingRequests(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     if (isOpen && activeTab === 'view') {
