@@ -32,7 +32,6 @@ export async function GET() {
           user_id,
           speech_url,
           week_start_date,
-          users!speeches_user_id_fkey(name, avatar_url),
           ballots(
             id,
             gestures,
@@ -54,6 +53,26 @@ export async function GET() {
           { status: 500 }
         );
       }
+
+      // Get all unique user IDs from speeches
+      const userIds = new Set<string>();
+      speeches?.forEach((speech: { user_id: string }) => {
+        userIds.add(speech.user_id);
+      });
+
+      // Fetch user information for all speakers
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, name, avatar_url')
+        .in('id', Array.from(userIds));
+
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+      }
+
+      const userMap = new Map(
+        users?.map(u => [u.id, { name: u.name, avatar_url: u.avatar_url }]) || []
+      );
 
       // First, get all reviewer names for ballots
       const reviewerIds = new Set<string>();
@@ -81,7 +100,6 @@ export async function GET() {
         id: string;
         speech_url: string;
         week_start_date: string;
-        users?: Array<{ name?: string; avatar_url?: string }>;
         ballots?: Array<{
           id: string;
           reviewer_id: string;
@@ -96,7 +114,7 @@ export async function GET() {
         }>;
       }) => {
         const userId = speech.user_id;
-        const user = speech.users?.[0];
+        const user = userMap.get(userId);
         if (!userStats.has(userId)) {
           userStats.set(userId, {
             name: user?.name || 'Anonymous',
