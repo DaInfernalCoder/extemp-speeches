@@ -98,13 +98,39 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
   };
 
   // Helper function for YouTube resumable chunk uploads (PUT method with raw blob)
-  const uploadYouTubeChunk = (
+  const uploadYouTubeChunk = async (
     url: string,
     chunk: Blob,
     contentRange: string,
     contentType: string,
-    onProgress: (progress: number) => void
+    onProgress: (progress: number) => void,
+    oauthToken?: string | null
   ): Promise<Response> => {
+    // Log upload URL (truncated for security)
+    const urlParts = url.split('?');
+    const baseUrl = urlParts[0];
+    const queryParams = urlParts[1] ? urlParts[1].substring(0, 50) + '...' : '';
+    console.log('[DEBUG] YouTube chunk upload:', {
+      url: `${baseUrl}?${queryParams}`,
+      contentRange,
+      contentType,
+      chunkSize: chunk.size,
+      hasAuthHeader: !!oauthToken,
+      authTokenFormat: oauthToken ? `${oauthToken.substring(0, 10)}...` : 'missing',
+    });
+
+    // Log all headers being sent
+    const headersLog: Record<string, string> = {
+      'Content-Type': contentType,
+      'Content-Range': contentRange,
+    };
+    if (oauthToken) {
+      headersLog['Authorization'] = `Bearer ${oauthToken.substring(0, 10)}...`;
+    } else {
+      headersLog['Authorization'] = 'MISSING';
+    }
+    console.log('[DEBUG] YouTube chunk upload headers:', headersLog);
+
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
@@ -117,20 +143,32 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       };
 
       xhr.onload = () => {
+        // Log response details
+        const responseHeaders: Record<string, string | null> = {};
+        const headerNames = ['content-type', 'range', 'authorization'];
+        headerNames.forEach(name => {
+          responseHeaders[name] = xhr.getResponseHeader(name);
+        });
+        console.log('[DEBUG] YouTube chunk upload response:', {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: responseHeaders,
+        });
+
         // 200 = complete, 308 = resume incomplete (need to continue)
         if (xhr.status === 200 || xhr.status === 308) {
           // Create Response with headers
-          const responseHeaders = new Headers();
-          responseHeaders.set('Content-Type', xhr.getResponseHeader('Content-Type') || 'application/json');
+          const responseHeadersObj = new Headers();
+          responseHeadersObj.set('Content-Type', xhr.getResponseHeader('Content-Type') || 'application/json');
           const rangeHeader = xhr.getResponseHeader('Range');
           if (rangeHeader) {
-            responseHeaders.set('Range', rangeHeader);
+            responseHeadersObj.set('Range', rangeHeader);
           }
 
           const response = new Response(xhr.responseText || xhr.response, {
             status: xhr.status,
             statusText: xhr.statusText,
-            headers: responseHeaders,
+            headers: responseHeadersObj,
           });
           resolve(response);
         } else {
@@ -139,12 +177,24 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           try {
             const errorData = JSON.parse(xhr.responseText || '{}');
             errorMessage = errorData.error?.message || '';
+            console.log('[DEBUG] YouTube chunk upload error response:', {
+              status: xhr.status,
+              errorData,
+            });
           } catch {
             // If response is not JSON, use status text
+            console.log('[DEBUG] YouTube chunk upload non-JSON error:', {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              responseText: xhr.responseText?.substring(0, 200),
+            });
           }
 
-          // Provide user-friendly error messages for API rejections
-          if (xhr.status === 403) {
+          // Distinguish between auth errors and other errors
+          if (xhr.status === 401) {
+            console.error('[DEBUG] YouTube upload auth error (401): Token may be expired or invalid');
+            reject(new Error('YouTube authentication failed. Please sign in again and grant YouTube upload permissions.'));
+          } else if (xhr.status === 403) {
             reject(new Error(errorMessage || 'YouTube rejected the upload. Your account may have exceeded its upload quota.'));
           } else if (xhr.status === 429) {
             reject(new Error('YouTube API rate limit exceeded. Please wait a few minutes and try again.'));
@@ -156,8 +206,14 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         }
       };
 
-      xhr.onerror = () => reject(new Error('Upload failed'));
-      xhr.onabort = () => reject(new Error('Upload aborted'));
+      xhr.onerror = () => {
+        console.error('[DEBUG] YouTube chunk upload network error - this may be a CORS error');
+        reject(new Error('Upload failed - network error (may be CORS related)'));
+      };
+      xhr.onabort = () => {
+        console.error('[DEBUG] YouTube chunk upload aborted');
+        reject(new Error('Upload aborted'));
+      };
 
       // Use PUT for YouTube resumable uploads
       xhr.open('PUT', url);
@@ -165,6 +221,14 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       // Set required headers
       xhr.setRequestHeader('Content-Type', contentType);
       xhr.setRequestHeader('Content-Range', contentRange);
+
+      // Add Authorization header if OAuth token is provided
+      if (oauthToken) {
+        xhr.setRequestHeader('Authorization', `Bearer ${oauthToken}`);
+        console.log('[DEBUG] Added Authorization header to YouTube chunk upload');
+      } else {
+        console.warn('[DEBUG] WARNING: No Authorization header added to YouTube chunk upload - this may cause CORS/auth errors');
+      }
 
       // Don't send credentials to YouTube
       xhr.withCredentials = false;
@@ -258,11 +322,30 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             const resumableUploadUrl = initData.upload_url;
             setUploadProgress(10);
 
+            // Get OAuth token from session for chunk uploads
+            const { data: { session } } = await supabase.auth.getSession();
+            const oauthToken = session?.provider_token;
+            
+            console.log('[DEBUG] Before YouTube chunk upload loop:', {
+              resumableUploadUrl: resumableUploadUrl.substring(0, 100) + '...',
+              fileSize: videoFile.size,
+              fileName: videoFile.name,
+              fileType: videoFile.type,
+              hasOAuthToken: !!oauthToken,
+              oauthTokenFormat: oauthToken ? `${oauthToken.substring(0, 10)}...` : 'missing',
+            });
+
             // Step 2: Upload video to YouTube using resumable protocol
             // YouTube resumable upload: upload in chunks and track progress
             const chunkSize = 256 * 1024; // 256KB chunks
             let bytesUploaded = 0;
             let youtubeVideoId = '';
+
+            console.log('[DEBUG] YouTube upload strategy:', {
+              chunkSize,
+              totalChunks: Math.ceil(videoFile.size / chunkSize),
+              contentRangeFormat: `bytes ${bytesUploaded}-${Math.min(chunkSize - 1, videoFile.size - 1)}/${videoFile.size}`,
+            });
 
             while (bytesUploaded < videoFile.size) {
               const chunk = videoFile.slice(bytesUploaded, Math.min(bytesUploaded + chunkSize, videoFile.size));
@@ -282,7 +365,8 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                     const totalProgress = bytesUploaded + (chunkProgress / 100) * chunk.size;
                     const scaledProgress = 10 + Math.floor((totalProgress / videoFile.size) * 80);
                     setUploadProgress(Math.min(90, scaledProgress));
-                  }
+                  },
+                  oauthToken
                 );
 
                 // Check if we need to resume (308 Resume Incomplete)
@@ -311,6 +395,23 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
               } catch (chunkError: unknown) {
                 const error = chunkError as { message?: string };
                 
+                // Enhanced error logging
+                const isCorsError = error.message?.includes('CORS') || 
+                                   error.message?.includes('network error') ||
+                                   error.message?.includes('Access-Control-Allow-Origin');
+                const isAuthError = error.message?.includes('authentication') || 
+                                error.message?.includes('401') ||
+                                error.message?.includes('sign in again');
+                
+                console.error('[DEBUG] YouTube chunk upload error:', {
+                  errorMessage: error.message,
+                  bytesUploaded,
+                  totalBytes: videoFile.size,
+                  isCorsError,
+                  isAuthError,
+                  hasOAuthToken: !!oauthToken,
+                });
+                
                 // Check if it's an API rejection (403, 429, 503) - don't try to resume
                 const isApiRejection = error.message?.includes('rejected') || 
                                        error.message?.includes('rate limit') || 
@@ -321,11 +422,16 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 if (!isApiRejection && bytesUploaded > 0) {
                   // Check upload status before resuming
                   try {
+                    const statusHeaders: Record<string, string> = {
+                      'Content-Range': `bytes */${videoFile.size}`,
+                    };
+                    if (oauthToken) {
+                      statusHeaders['Authorization'] = `Bearer ${oauthToken}`;
+                    }
+                    
                     const statusResponse = await fetch(resumableUploadUrl, {
                       method: 'PUT',
-                      headers: {
-                        'Content-Range': `bytes */${videoFile.size}`,
-                      },
+                      headers: statusHeaders,
                     });
 
                     if (statusResponse.status === 308) {
@@ -338,7 +444,8 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                         }
                       }
                     }
-                  } catch {
+                  } catch (statusError) {
+                    console.error('[DEBUG] Status check failed:', statusError);
                     // If status check fails, throw original error
                   }
                 }

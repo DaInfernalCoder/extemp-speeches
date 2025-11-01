@@ -57,8 +57,8 @@ export async function GET() {
 
       // First, get all reviewer names for ballots
       const reviewerIds = new Set<string>();
-      speeches?.forEach((speech: any) => {
-        speech.ballots?.forEach((ballot: any) => {
+      speeches?.forEach((speech: { ballots?: Array<{ reviewer_id: string }> }) => {
+        speech.ballots?.forEach((ballot: { reviewer_id: string }) => {
           reviewerIds.add(ballot.reviewer_id);
         });
       });
@@ -75,9 +75,26 @@ export async function GET() {
 
       // Calculate stats in JavaScript
       const userStats = new Map();
-      const speechDetailsMap = new Map();
       
-      speeches?.forEach((speech: any) => {
+      speeches?.forEach((speech: {
+        user_id: string;
+        id: string;
+        speech_url: string;
+        week_start_date: string;
+        users?: { name?: string; avatar_url?: string };
+        ballots?: Array<{
+          id: string;
+          reviewer_id: string;
+          gestures: number;
+          delivery: number;
+          pauses: number;
+          content: number;
+          entertaining: number;
+          feedback_text?: string;
+          better_than_last: boolean;
+          created_at: string;
+        }>;
+      }) => {
         const userId = speech.user_id;
         if (!userStats.has(userId)) {
           userStats.set(userId, {
@@ -102,7 +119,18 @@ export async function GET() {
         }
 
         // Store speech details with ballots
-        const ballotsWithReviewers = speech.ballots?.map((ballot: any) => ({
+        const ballotsWithReviewers = speech.ballots?.map((ballot: {
+          id: string;
+          reviewer_id: string;
+          gestures: number;
+          delivery: number;
+          pauses: number;
+          content: number;
+          entertaining: number;
+          feedback_text?: string;
+          better_than_last: boolean;
+          created_at: string;
+        }) => ({
           ...ballot,
           reviewer_name: reviewerMap.get(ballot.reviewer_id) || 'Anonymous',
         })) || [];

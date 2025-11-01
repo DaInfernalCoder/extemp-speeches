@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/client';
-import type { Session } from '@supabase/supabase-js';
 
 const YOUTUBE_UPLOAD_SCOPE = 'https://www.googleapis.com/auth/youtube.upload';
 

@@ -40,9 +40,17 @@ export async function GET() {
     }
 
     // Group speeches by user and date to generate titles
-    const groupedByUser = new Map<string, any[]>();
+    interface Speech {
+      id: string;
+      speech_url: string;
+      submitted_at: string;
+      user_id: string;
+      users?: { name?: string; avatar_url?: string };
+    }
     
-    speeches?.forEach((speech: any) => {
+    const groupedByUser = new Map<string, Speech[]>();
+    
+    speeches?.forEach((speech: Speech) => {
       const userId = speech.user_id;
       if (!groupedByUser.has(userId)) {
         groupedByUser.set(userId, []);
@@ -51,13 +59,23 @@ export async function GET() {
     });
 
     // Format speeches with titles like "User Name - Oct 30 -1"
-    const formattedSpeeches: any[] = [];
+    interface FormattedSpeech {
+      id: string;
+      title: string;
+      speech_url: string;
+      user_id: string;
+      user_name: string;
+      submitted_at: string;
+      has_previous_speeches: boolean;
+    }
+    
+    const formattedSpeeches: FormattedSpeech[] = [];
     
     groupedByUser.forEach((userSpeeches) => {
       // Group by date
-      const byDate = new Map<string, any[]>();
+      const byDate = new Map<string, Speech[]>();
       
-      userSpeeches.forEach((speech) => {
+      userSpeeches.forEach((speech: Speech) => {
         const date = new Date(speech.submitted_at);
         const dateKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
