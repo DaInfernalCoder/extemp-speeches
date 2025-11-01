@@ -55,6 +55,40 @@ export async function POST(request: Request) {
     const fileExt = fileName.split('.').pop();
     const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
+    // Verify bucket exists and is accessible
+    const { error: bucketError } = await supabase.storage
+      .from(bucket)
+      .list('', { limit: 1, offset: 0 });
+
+    if (bucketError) {
+      console.error('Error accessing bucket:', {
+        bucket,
+        error: bucketError,
+        message: bucketError.message,
+        details: bucketError,
+      });
+      
+      // If bucket doesn't exist, provide helpful error
+      const errorMessage = bucketError.message?.toLowerCase() || '';
+      if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+        return NextResponse.json(
+          { 
+            error: `Bucket "${bucket}" not found. Please ensure the bucket exists in Supabase Storage.`,
+            details: bucketError.message,
+          },
+          { status: 404 }
+        );
+      }
+      
+      return NextResponse.json(
+        { 
+          error: 'Failed to access storage bucket',
+          details: bucketError.message,
+        },
+        { status: 500 }
+      );
+    }
+
     // Get signed upload URL (valid for 1 hour)
     const { data, error } = await supabase.storage
       .from(bucket)
@@ -63,10 +97,24 @@ export async function POST(request: Request) {
       });
 
     if (error) {
-      console.error('Error creating signed URL:', error);
+      console.error('Error creating signed URL:', {
+        bucket,
+        filePath,
+        error: error,
+        message: error.message,
+        details: error,
+      });
+      
+      // Check for bucket not found errors
+      const errorMessage = error.message?.toLowerCase() || '';
+      const isNotFound = errorMessage.includes('not found') || errorMessage.includes('404');
+      
       return NextResponse.json(
-        { error: 'Failed to create upload URL' },
-        { status: 500 }
+        { 
+          error: 'Failed to create upload URL',
+          details: error.message || 'Unknown error',
+        },
+        { status: isNotFound ? 404 : 500 }
       );
     }
 
@@ -82,9 +130,16 @@ export async function POST(request: Request) {
       file_path: filePath,
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('Unexpected error:', {
+      error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
