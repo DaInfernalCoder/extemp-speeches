@@ -17,6 +17,7 @@ interface SpeechOption {
   user_name: string;
   submitted_at: string;
   has_previous_speeches: boolean;
+  focus_area: string | null;
 }
 
 export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: BallotSubmitModalProps) {
@@ -29,6 +30,8 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
   const [entertaining, setEntertaining] = useState(5);
   const [feedbackText, setFeedbackText] = useState('');
   const [betterThanLast, setBetterThanLast] = useState(false);
+  const [focusAreaRating, setFocusAreaRating] = useState(5);
+  const [newFocusArea, setNewFocusArea] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingSpeeches, setLoadingSpeeches] = useState(true);
   const [error, setError] = useState('');
@@ -95,6 +98,8 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
           entertaining,
           feedback_text: feedbackText.trim() || null,
           better_than_last: betterThanLast,
+          focus_area_rating: selectedSpeech?.focus_area ? focusAreaRating : undefined,
+          new_focus_area: newFocusArea.trim() || undefined,
         }),
       });
 
@@ -127,6 +132,8 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
     setEntertaining(5);
     setFeedbackText('');
     setBetterThanLast(false);
+    setFocusAreaRating(5);
+    setNewFocusArea('');
     setError('');
   };
 
@@ -165,6 +172,8 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                 onChange={(e) => {
                   setSelectedSpeechId(e.target.value);
                   setBetterThanLast(false); // Reset checkbox when changing speech
+                  setFocusAreaRating(5); // Reset focus area rating
+                  setNewFocusArea(''); // Reset new focus area
                 }}
                 className="w-full px-4 py-2 brutal-border rounded-lg text-sm"
                 style={{
@@ -272,6 +281,90 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
                 />
               </div>
             </div>
+
+            {/* Focus Area Section */}
+            {selectedSpeech && (
+              <div className="mb-6">
+                {!selectedSpeech.focus_area ? (
+                  // No focus area - require textbox to set one
+                  <div>
+                    <label htmlFor="new-focus-area" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
+                      What should their focus area be? <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="new-focus-area"
+                      type="text"
+                      value={newFocusArea}
+                      onChange={(e) => setNewFocusArea(e.target.value)}
+                      placeholder="e.g., Better eye contact, Clearer articulation..."
+                      className="w-full px-4 py-3 brutal-border rounded-lg text-sm"
+                      style={{
+                        color: '#1a1a1a',
+                        backgroundColor: '#ffffff'
+                      }}
+                      required
+                      disabled={loading}
+                    />
+                  </div>
+                ) : (
+                  // Has focus area - show slider and conditional textbox
+                  <div>
+                    <label htmlFor="focus-area-rating" className="block text-sm font-bold mb-1" style={{ color: '#1a1a1a' }}>
+                      Focus Area: {selectedSpeech.focus_area} - {focusAreaRating}
+                    </label>
+                    <input
+                      id="focus-area-rating"
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={focusAreaRating}
+                      onChange={(e) => setFocusAreaRating(Number(e.target.value))}
+                      className="w-full h-8 cursor-pointer mobile-slider"
+                      required
+                      disabled={loading}
+                    />
+                    
+                    {/* Conditional textbox that appears when rating >= 6 */}
+                    <div
+                      className={`transition-all duration-300 ease-out overflow-hidden ${
+                        focusAreaRating >= 6
+                          ? 'max-h-[200px] opacity-100 mt-4'
+                          : 'max-h-0 opacity-0 mt-0'
+                      }`}
+                      style={{
+                        transform: focusAreaRating >= 6 ? 'translateY(0)' : 'translateY(-10px)',
+                      }}
+                    >
+                      <label htmlFor="change-focus-area" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
+                        Change focus area? (Optional)
+                      </label>
+                      <input
+                        id="change-focus-area"
+                        type="text"
+                        value={newFocusArea}
+                        onChange={(e) => setNewFocusArea(e.target.value)}
+                        placeholder="Enter new focus area if they&apos;ve mastered this one..."
+                        className="w-full px-4 py-3 brutal-border rounded-lg text-sm"
+                        style={{
+                          color: '#1a1a1a',
+                          backgroundColor: '#ffffff'
+                        }}
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Focus Area Placeholder (when no speech selected but speeches loaded) */}
+            {!selectedSpeechId && speeches.length > 0 && (
+              <div className="mb-6 p-4 brutal-border rounded-lg" style={{ backgroundColor: '#FFF8F0' }}>
+                <p className="text-sm font-medium" style={{ color: '#1a1a1a' }}>
+                  Select a speech to see focus area options
+                </p>
+              </div>
+            )}
 
             {/* Feedback Text */}
             <div className="mb-6">

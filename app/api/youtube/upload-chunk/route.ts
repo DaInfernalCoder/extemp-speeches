@@ -51,7 +51,7 @@ export async function PUT(request: Request) {
       // Remove data URL prefix if present (e.g., "data:video/quicktime;base64,")
       const base64Data = chunkData.includes(',') ? chunkData.split(',')[1] : chunkData;
       chunkBuffer = Buffer.from(base64Data, 'base64');
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid chunk data format' },
         { status: 400 }

@@ -26,6 +26,8 @@ export async function POST(request: Request) {
       entertaining,
       feedback_text,
       better_than_last,
+      focus_area_rating,
+      new_focus_area,
     } = body;
 
     // Validate required fields
@@ -59,6 +61,47 @@ export async function POST(request: Request) {
         { error: 'Speech not found' },
         { status: 404 }
       );
+    }
+
+    // Get speaker's focus area to determine validation rules
+    const { data: speaker } = await supabase
+      .from('users')
+      .select('focus_area')
+      .eq('id', speech.user_id)
+      .single();
+
+    const hasFocusArea = speaker?.focus_area && speaker.focus_area.trim().length > 0;
+
+    // Validate focus area fields based on whether speaker has one
+    if (!hasFocusArea) {
+      // If speaker has no focus area, require new_focus_area
+      if (!new_focus_area || typeof new_focus_area !== 'string' || new_focus_area.trim().length === 0) {
+        return NextResponse.json(
+          { error: 'Focus area is required. Please specify what the speaker should focus on.' },
+          { status: 400 }
+        );
+      }
+      // Validate focus_area_rating should not be provided if no focus area exists
+      if (focus_area_rating !== undefined && focus_area_rating !== null) {
+        return NextResponse.json(
+          { error: 'Focus area rating cannot be provided when speaker has no focus area' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // If speaker has focus area, require focus_area_rating
+      if (focus_area_rating === undefined || focus_area_rating === null) {
+        return NextResponse.json(
+          { error: 'Focus area rating is required' },
+          { status: 400 }
+        );
+      }
+      if (typeof focus_area_rating !== 'number' || focus_area_rating < 1 || focus_area_rating > 10) {
+        return NextResponse.json(
+          { error: 'Focus area rating must be a number between 1 and 10' },
+          { status: 400 }
+        );
+      }
     }
 
     // Prevent users from reviewing their own speeches
@@ -122,6 +165,7 @@ export async function POST(request: Request) {
         entertaining,
         feedback_text: feedback_text || null,
         better_than_last: better_than_last || false,
+        focus_area_rating: hasFocusArea ? focus_area_rating : null,
       })
       .select()
       .single();
@@ -132,6 +176,19 @@ export async function POST(request: Request) {
         { error: 'Failed to submit ballot' },
         { status: 500 }
       );
+    }
+
+    // Update speaker's focus area if new_focus_area is provided and not empty
+    if (new_focus_area && typeof new_focus_area === 'string' && new_focus_area.trim().length > 0) {
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ focus_area: new_focus_area.trim() })
+        .eq('id', speech.user_id);
+
+      if (updateError) {
+        console.error('Error updating focus area:', updateError);
+        // Don't fail the request if focus area update fails, just log it
+      }
     }
 
     // Get speech owner details and reviewer name for email notification

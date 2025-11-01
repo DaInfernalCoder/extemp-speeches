@@ -44,7 +44,7 @@ export async function GET() {
     // Fetch user information for all speakers
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, name, avatar_url')
+      .select('id, name, avatar_url, focus_area')
       .in('id', Array.from(userIds));
 
     if (usersError) {
@@ -52,7 +52,7 @@ export async function GET() {
     }
 
     const userMap = new Map(
-      users?.map(u => [u.id, { name: u.name, avatar_url: u.avatar_url }]) || []
+      users?.map(u => [u.id, { name: u.name, avatar_url: u.avatar_url, focus_area: u.focus_area }]) || []
     );
 
     // Group speeches by user and date to generate titles
@@ -82,6 +82,7 @@ export async function GET() {
       user_name: string;
       submitted_at: string;
       has_previous_speeches: boolean;
+      focus_area: string | null;
     }
     
     const formattedSpeeches: FormattedSpeech[] = [];
@@ -121,6 +122,7 @@ export async function GET() {
             user_name: userName,
             submitted_at: speech.submitted_at,
             has_previous_speeches: hasPreviousSpeeches,
+            focus_area: user?.focus_area || null,
           });
         });
       });

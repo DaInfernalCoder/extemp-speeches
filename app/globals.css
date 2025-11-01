@@ -46,6 +46,31 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Fire Animation for Focus Area */
+.fire-animation {
+  animation: fireFlicker 2s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes fireFlicker {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1);
+  }
+  25% {
+    transform: scale(1.1) rotate(-2deg);
+    filter: brightness(1.2);
+  }
+  50% {
+    transform: scale(1) rotate(2deg);
+    filter: brightness(1.1);
+  }
+  75% {
+    transform: scale(1.05) rotate(-1deg);
+    filter: brightness(1.15);
+  }
+}
+
 /* Neobrutalist range sliders */
 .mobile-slider {
   -webkit-appearance: none;

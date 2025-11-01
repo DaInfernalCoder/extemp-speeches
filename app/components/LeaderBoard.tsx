@@ -8,6 +8,7 @@ import SpeechSubmitModal from './SpeechSubmitModal';
 import BallotSubmitModal from './BallotSubmitModal';
 import BallotViewModal from './BallotViewModal';
 import FeatureRequestModal from './FeatureRequestModal';
+import FocusAreaDisplay from './FocusAreaDisplay';
 import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface Ballot {
@@ -19,6 +20,7 @@ interface Ballot {
   entertaining: number;
   feedback_text?: string;
   better_than_last: boolean;
+  focus_area_rating?: number | null;
   created_at: string;
   reviewer_name: string;
 }
@@ -324,6 +326,13 @@ const LeaderBoard: React.FC = () => {
       <div
         className="min-h-screen p-4 sm:p-8"
       >
+        {/* Focus Area Display */}
+        {user && (
+          <div className="max-w-4xl mx-auto mb-6 sm:mb-8">
+            <FocusAreaDisplay />
+          </div>
+        )}
+
         {/* Top Buttons */}
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 mb-8">
           <button

@@ -11,6 +11,7 @@ interface Ballot {
   entertaining: number;
   feedback_text?: string;
   better_than_last: boolean;
+  focus_area_rating?: number | null;
   created_at: string;
   reviewer_name: string;
 }
@@ -166,6 +167,24 @@ export default function BallotViewModal({ isOpen, onClose, ballots }: BallotView
                       ></div>
                     </div>
                   </div>
+
+                  {/* Focus Area Rating */}
+                  {selectedBallot.focus_area_rating !== null && selectedBallot.focus_area_rating !== undefined && (
+                    <div>
+                      <label className="block text-sm font-bold mb-1" style={{ color: '#1a1a1a' }}>
+                        Focus Area: {selectedBallot.focus_area_rating}/10
+                      </label>
+                      <div className="w-full h-3 bg-white brutal-border rounded-lg overflow-hidden">
+                        <div
+                          className="h-full"
+                          style={{
+                            width: `${(selectedBallot.focus_area_rating / 10) * 100}%`,
+                            backgroundColor: selectedBallot.focus_area_rating >= 7 ? 'var(--success)' : selectedBallot.focus_area_rating >= 5 ? 'var(--secondary)' : 'var(--error)'
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Better Than Last Indicator */}

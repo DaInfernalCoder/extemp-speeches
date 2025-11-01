@@ -99,9 +99,9 @@ The application uses a **neobrutalist design language** inspired by modern desig
 
 The application uses **Supabase** for authentication, data storage, and file storage:
 - **Database Tables**:
-  - `users`: Stores user profiles (synced with auth.users), includes `email_reminders_enabled` and `last_reminder_sent_at` fields
+  - `users`: Stores user profiles (synced with auth.users), includes `email_reminders_enabled`, `last_reminder_sent_at`, and `focus_area` fields
   - `speeches`: Stores speech submissions with speech URLs and week tracking
-  - `ballots`: Stores speech reviews with multiple criteria ratings (1-10 scale), feedback text, and comparison flags
+  - `ballots`: Stores speech reviews with multiple criteria ratings (1-10 scale), feedback text, comparison flags, and `focus_area_rating` (rating for how well speaker performed on their focus area)
   - `feature_requests`: Stores user-submitted feature requests with title and description
 - **Storage Buckets**:
   - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 50 MB limit)
@@ -199,11 +199,25 @@ The application uses **Resend** for email delivery:
   - Requires authentication
 
 - **POST /api/ballots/submit**: Submit a ballot (review) for a speech
-  - Accepts JSON with speech_id, rating criteria (gestures, delivery, pauses, content, entertaining), feedback text, and better_than_last flag
+  - Accepts JSON with speech_id, rating criteria (gestures, delivery, pauses, content, entertaining), feedback text, better_than_last flag, focus_area_rating, and new_focus_area
+  - Focus area validation:
+    - If speaker has no focus_area: requires `new_focus_area` textbox input
+    - If speaker has focus_area: requires `focus_area_rating` (1-10), optionally accepts `new_focus_area` if rating >= 6
   - Validates all ratings are 1-10
   - Prevents users from reviewing their own speeches
   - Prevents duplicate reviews (one ballot per reviewer per speech)
   - Validates "better than last" checkbox only if speaker has previous speeches
+  - Updates speaker's `focus_area` in users table if `new_focus_area` is provided
+  - Requires authentication
+
+- **GET /api/users/focus-area**: Fetch current user's focus area and statistics
+  - Returns: `focus_area` text, `focus_area_ratings` array, `total_ratings` count, `recent_average`, `previous_average`, and `growth_percentage`
+  - Used by dashboard to display focus area and calculate growth
+  - Requires authentication
+
+- **PATCH /api/users/focus-area**: Update current user's focus area
+  - Accepts JSON with `focus_area` string (or null to clear)
+  - Updates user's focus area in users table
   - Requires authentication
 
 - **GET /api/leaderboard**: Fetch leaderboard data
@@ -253,6 +267,7 @@ The application features:
 - **LeaderBoard Component** ([app/components/LeaderBoard.tsx](app/components/LeaderBoard.tsx)):
   - Fetches real leaderboard data from API
   - Real-time updates via Supabase subscriptions (speeches and ballots)
+  - Displays **FocusAreaDisplay** component at top (if user is logged in)
   - Displays weekly and all-time speech counts
   - Podium visualization for top 3 speakers
   - Responsive table layout for all entries
@@ -316,6 +331,9 @@ The application features:
   - Speech selection dropdown with speeches grouped by user
   - Speech titles display as "User Name - Oct 30 -1" format
   - Five rating sliders (1-10) for: gestures, delivery, pauses, content, entertaining
+  - **Focus Area Section**:
+    - If speaker has no focus_area: Shows required textbox "What should their focus area be?"
+    - If speaker has focus_area: Shows slider for rating (1-10) the focus area performance, with animated textbox appearing when rating >= 6 to optionally change the focus area
   - Optional text area for feedback
   - Conditional "better than last" checkbox (only shown if speaker has previous recordings)
   - Form validation and submission
@@ -333,22 +351,36 @@ The application features:
   - Displays ballots received on a speech
   - Dropdown to select between multiple ballots (indexed by reviewer name and date)
   - Read-only display of all rating criteria (gestures, delivery, pauses, content, entertaining) as progress bars
+  - Displays focus_area_rating as progress bar if present (color-coded: green >= 7, yellow >= 5, red < 5)
   - Shows reviewer name and submission timestamp
   - Displays "Better than last" indicator if applicable
   - Shows optional feedback text in a read-only box
   - Close button to dismiss modal
 
+- **FocusAreaDisplay Component** ([app/components/FocusAreaDisplay.tsx](app/components/FocusAreaDisplay.tsx)):
+  - Displays at top of dashboard (only when user is logged in)
+  - Shows "Today I need to Focus On: [focus_area text]"
+  - Displays recent progress bars showing last 5 focus area ratings (1-10 scale)
+  - If 2+ ratings exist:
+    - Calculates and displays percentage growth (comparing recent average vs previous average)
+    - Shows fire animation (Duolingo-style streak indicator) above focus area text
+    - Displays growth percentage badge with color coding (green for positive, yellow for neutral/negative)
+  - Real-time updates via Supabase subscriptions (users and ballots tables)
+  - Matches neobrutalist design language with thick borders, hard shadows, and bold typography
+  - Responsive design for mobile and desktop
+
 ## Code Organization
 
 ### Directory Structure
 
-- **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, BallotViewModal, FeatureRequestModal)
+- **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, BallotViewModal, FeatureRequestModal, FocusAreaDisplay)
 - **app/api/**: API route handlers for backend operations
   - `cloudflare-stream/init/`: Cloudflare Stream upload initialization
   - `youtube/init/`: YouTube resumable upload session initialization
   - `speeches/`: Fetch speeches for ballot selection
   - `speeches/submit/`: Speech submission endpoint
   - `ballots/submit/`: Ballot submission endpoint
+  - `users/focus-area/`: Get/update user focus area and statistics
   - `feature-requests/`: Fetch feature requests
   - `feature-requests/submit/`: Feature request submission endpoint
   - `leaderboard/`: Leaderboard data endpoint

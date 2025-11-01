@@ -42,6 +42,7 @@ export async function GET() {
             entertaining,
             feedback_text,
             better_than_last,
+            focus_area_rating,
             created_at,
             reviewer_id
           )
