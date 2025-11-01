@@ -15,18 +15,14 @@ export async function GET() {
       );
     }
 
-    // Fetch all speeches with user information, ordered by user and submitted_at
+    // Fetch all speeches, ordered by user and submitted_at
     const { data: speeches, error } = await supabase
       .from('speeches')
       .select(`
         id,
         speech_url,
         submitted_at,
-        user_id,
-        users!speeches_user_id_fkey (
-          name,
-          avatar_url
-        )
+        user_id
       `)
       .order('user_id')
       .order('submitted_at', { ascending: true });
@@ -39,13 +35,32 @@ export async function GET() {
       );
     }
 
+    // Get all unique user IDs from speeches
+    const userIds = new Set<string>();
+    speeches?.forEach((speech: { user_id: string }) => {
+      userIds.add(speech.user_id);
+    });
+
+    // Fetch user information for all speakers
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, name, avatar_url')
+      .in('id', Array.from(userIds));
+
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+    }
+
+    const userMap = new Map(
+      users?.map(u => [u.id, { name: u.name, avatar_url: u.avatar_url }]) || []
+    );
+
     // Group speeches by user and date to generate titles
     interface Speech {
       id: string;
       speech_url: string;
       submitted_at: string;
       user_id: string;
-      users?: Array<{ name?: string; avatar_url?: string }>;
     }
     
     const groupedByUser = new Map<string, Speech[]>();
@@ -88,7 +103,7 @@ export async function GET() {
       // Create titles with counters
       byDate.forEach((dateSpeeches, dateKey) => {
         dateSpeeches.forEach((speech, index) => {
-          const user = speech.users?.[0];
+          const user = userMap.get(speech.user_id);
           const userName = user?.name || 'Anonymous';
           const counter = dateSpeeches.length > 1 ? ` -${index + 1}` : '';
           const title = `${userName} - ${dateKey}${counter}`;
