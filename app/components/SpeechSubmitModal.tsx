@@ -134,7 +134,25 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           });
           resolve(response);
         } else {
-          reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`));
+          // Handle specific API rejection errors
+          let errorMessage = '';
+          try {
+            const errorData = JSON.parse(xhr.responseText || '{}');
+            errorMessage = errorData.error?.message || '';
+          } catch {
+            // If response is not JSON, use status text
+          }
+
+          // Provide user-friendly error messages for API rejections
+          if (xhr.status === 403) {
+            reject(new Error(errorMessage || 'YouTube rejected the upload. Your account may have exceeded its upload quota.'));
+          } else if (xhr.status === 429) {
+            reject(new Error('YouTube API rate limit exceeded. Please wait a few minutes and try again.'));
+          } else if (xhr.status === 503) {
+            reject(new Error('YouTube service is temporarily unavailable. Please try again in a few minutes.'));
+          } else {
+            reject(new Error(errorMessage || `YouTube upload failed (status ${xhr.status}). Please try again or use Cloudflare instead.`));
+          }
         }
       };
 
@@ -292,8 +310,15 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 bytesUploaded = chunkEnd + 1;
               } catch (chunkError: unknown) {
                 const error = chunkError as { message?: string };
-                // Try to resume on error
-                if (bytesUploaded > 0) {
+                
+                // Check if it's an API rejection (403, 429, 503) - don't try to resume
+                const isApiRejection = error.message?.includes('rejected') || 
+                                       error.message?.includes('rate limit') || 
+                                       error.message?.includes('unavailable') ||
+                                       error.message?.includes('quota');
+                
+                // Only try to resume if it's not an API rejection and we have progress
+                if (!isApiRejection && bytesUploaded > 0) {
                   // Check upload status before resuming
                   try {
                     const statusResponse = await fetch(resumableUploadUrl, {
@@ -318,6 +343,16 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                   }
                 }
 
+                // If API rejection, show error and stop
+                if (isApiRejection) {
+                  const errorMessage = error.message || 'YouTube rejected the upload';
+                  setError(errorMessage);
+                  toast.error(errorMessage);
+                  setLoading(false);
+                  return;
+                }
+
+                // Otherwise, show error and throw
                 const errorMessage = error.message || `Upload failed at byte ${bytesUploaded}`;
                 toast.error(errorMessage);
                 throw new Error(errorMessage);
@@ -413,9 +448,21 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             );
 
             if (!uploadResponse.ok) {
-              const errorMessage = 'Failed to upload video to Cloudflare Stream';
+              let errorMessage = 'Failed to upload video to Cloudflare Stream';
+              
+              // Check for API rejection errors
+              if (uploadResponse.status === 403 || uploadResponse.status === 402) {
+                errorMessage = 'Cloudflare Stream quota exceeded. Please try again later or use YouTube instead.';
+              } else if (uploadResponse.status === 429) {
+                errorMessage = 'Cloudflare API rate limit exceeded. Please wait a few minutes and try again.';
+              } else if (uploadResponse.status === 503) {
+                errorMessage = 'Cloudflare Stream service is temporarily unavailable. Please try again in a few minutes.';
+              }
+              
+              setError(errorMessage);
               toast.error(errorMessage);
-              throw new Error(errorMessage);
+              setLoading(false);
+              return;
             }
 
             // Construct playback URL from UID
@@ -453,7 +500,20 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                   resolve();
                 },
                 onError: (error: Error) => {
-                  toast.error(`Upload failed: ${error.message}`);
+                  let errorMessage = `Upload failed: ${error.message}`;
+                  
+                  // Check for API rejection in error message
+                  if (error.message.includes('403') || error.message.includes('quota') || error.message.includes('limit')) {
+                    errorMessage = 'Cloudflare Stream quota exceeded. Please try again later or use YouTube instead.';
+                  } else if (error.message.includes('429')) {
+                    errorMessage = 'Cloudflare API rate limit exceeded. Please wait a few minutes and try again.';
+                  } else if (error.message.includes('503')) {
+                    errorMessage = 'Cloudflare Stream service is temporarily unavailable. Please try again in a few minutes.';
+                  }
+                  
+                  setError(errorMessage);
+                  toast.error(errorMessage);
+                  setLoading(false);
                   reject(new Error(`TUS upload failed: ${error.message}`));
                 },
               });
@@ -754,7 +814,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       {/* Auth Popup Modal */}
       {showAuthPopup && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60"
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-60"
           onClick={handleAuthPopupCancel}
         >
           <div

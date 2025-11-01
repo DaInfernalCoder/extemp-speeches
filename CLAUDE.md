@@ -148,6 +148,11 @@ The application uses **Resend** for email delivery:
   - Uses CLOUDFLARE_STREAM_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from environment
   - Configured with maxDuration of 60 seconds
   - Client uploads file directly to Cloudflare Stream (bypasses server timeout limits)
+  - **Error Handling**: Returns user-friendly error messages for API rejections:
+    - 429 (Rate Limit): "Cloudflare API rate limit exceeded. Please wait a few minutes and try again."
+    - 402/403 (Quota Exceeded): "Cloudflare Stream quota exceeded. Please try again later or use YouTube instead."
+    - 503 (Service Unavailable): "Cloudflare Stream service is temporarily unavailable. Please try again in a few minutes."
+    - Other errors include suggestion to try YouTube as alternative
 
 - **POST /api/youtube/init**: Initialize YouTube resumable upload session
   - Accepts JSON with file metadata (fileName, fileSize, fileType)
@@ -160,6 +165,13 @@ The application uses **Resend** for email delivery:
   - Uses provider_token from Supabase session for YouTube API authorization
   - Configured with maxDuration of 60 seconds
   - Client uploads video file directly to YouTube using resumable protocol (bypasses server timeout limits)
+  - **Error Handling**: Returns user-friendly error messages for API rejections:
+    - 401 (Unauthorized): "Invalid or expired Google OAuth token. Please sign in again and grant YouTube upload permissions."
+    - 403 (Permission/Quota): Checks for quota errors vs permission errors, returns appropriate message
+    - 429 (Rate Limit): "YouTube API rate limit exceeded. Please wait a few minutes and try again."
+    - 503 (Service Unavailable): "YouTube service is temporarily unavailable. Please try again in a few minutes."
+    - Quota errors: "YouTube upload quota exceeded. Please try again later or contact support."
+    - Other errors include suggestion to try Cloudflare as alternative
 
 - **POST /api/storage/signed-url**: Get signed upload URL for Supabase Storage
   - Accepts JSON with file metadata (fileName, fileSize, fileType, bucket)
@@ -271,6 +283,10 @@ The application features:
       - No server timeout limits (upload happens client → Cloudflare Stream directly)
       - Extracts video UID from upload URL
       - Optimized for speed: no browser-based compression (Cloudflare charges by minute, not GB, and handles encoding server-side)
+      - **Error Handling**: Detects API rejections during uploads (402, 403, 429, 503) and displays user-friendly error messages:
+        - Direct upload errors: Shows quota/rate limit/service unavailable messages with suggestions to try YouTube
+        - TUS upload errors: Detects API rejection status codes in error messages and displays appropriate messages
+        - Shows error in modal error box and toast notification
     - **YouTube Upload**:
       - Checks for YouTube upload permissions (`youtube.upload` scope) - shows popup if missing
       - Popup allows user to re-authenticate with Google to grant YouTube upload permissions
@@ -282,6 +298,10 @@ The application features:
       - Real-time progress tracking (10-90% for upload, 90-95% for speech submission)
       - Extracts video ID from YouTube API response and constructs watch URL
       - No server timeout limits (upload happens client → YouTube directly)
+      - **Error Handling**: Detects API rejections during chunk uploads (403, 429, 503) and displays user-friendly error messages:
+        - Stops upload immediately on API rejection (doesn't attempt to resume)
+        - Shows error in modal error box and toast notification
+        - Messages include suggestions to wait or try alternative service
   - YouTube Link tab: Text input for pasting existing YouTube URLs, validates format, submits directly to speeches API
   - Upload Audio tab: File input for audio files (max 50 MB), uses client-side direct upload to Supabase Storage
     - Calls `/api/storage/signed-url` to get signed upload URL (fast, ~200-500ms)

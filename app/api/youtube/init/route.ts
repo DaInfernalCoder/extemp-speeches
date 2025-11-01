@@ -86,6 +86,11 @@ export async function POST(request: Request) {
     });
 
     // Create resumable upload session
+    // Required headers per YouTube API:
+    // - Authorization: Bearer token
+    // - Content-Type: application/json (charset optional but recommended)
+    // - X-Upload-Content-Length: file size in bytes
+    // - X-Upload-Content-Type: MIME type (header names are case-insensitive)
     const initResponse = await fetch(youtubeInitUrl, {
       method: 'POST',
       headers: {
@@ -120,14 +125,45 @@ export async function POST(request: Request) {
       }
 
       if (initResponse.status === 403) {
+        // Check if it's a quota error or permission error
+        const errorMessage = errorData.error?.message?.toLowerCase() || '';
+        if (errorMessage.includes('quota') || errorMessage.includes('daily') || errorMessage.includes('limit')) {
+          return NextResponse.json(
+            { error: 'YouTube upload quota exceeded. Please try again later or contact support.' },
+            { status: 403 }
+          );
+        }
         return NextResponse.json(
           { error: 'YouTube upload permission not granted. Please sign in again and grant YouTube upload access.' },
           { status: 403 }
         );
       }
 
+      if (initResponse.status === 429) {
+        return NextResponse.json(
+          { error: 'YouTube API rate limit exceeded. Please wait a few minutes and try again.' },
+          { status: 429 }
+        );
+      }
+
+      if (initResponse.status === 503) {
+        return NextResponse.json(
+          { error: 'YouTube service is temporarily unavailable. Please try again in a few minutes.' },
+          { status: 503 }
+        );
+      }
+
+      // Check for quota errors in error message
+      const errorMessage = errorData.error?.message || '';
+      if (errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('daily')) {
+        return NextResponse.json(
+          { error: 'YouTube upload quota exceeded. Please try again later or contact support.' },
+          { status: initResponse.status }
+        );
+      }
+
       return NextResponse.json(
-        { error: errorData.error?.message || 'Failed to initialize YouTube upload' },
+        { error: errorData.error?.message || 'YouTube rejected the upload. Please try again or use Cloudflare instead.' },
         { status: initResponse.status }
       );
     }

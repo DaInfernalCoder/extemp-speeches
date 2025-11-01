@@ -118,8 +118,35 @@ export async function POST(request: Request) {
           statusText: directUploadResponse.statusText,
           errors: errorData.errors,
         });
+
+        // Handle specific error cases
+        if (directUploadResponse.status === 429) {
+          return NextResponse.json(
+            { error: 'Cloudflare API rate limit exceeded. Please wait a few minutes and try again.' },
+            { status: 429 }
+          );
+        }
+
+        if (directUploadResponse.status === 402 || directUploadResponse.status === 403) {
+          const errorMessage = errorData.errors?.[0]?.message?.toLowerCase() || '';
+          if (errorMessage.includes('quota') || errorMessage.includes('limit') || errorMessage.includes('subscription')) {
+            return NextResponse.json(
+              { error: 'Cloudflare Stream quota exceeded. Please try again later or contact support.' },
+              { status: directUploadResponse.status }
+            );
+          }
+        }
+
+        if (directUploadResponse.status === 503) {
+          return NextResponse.json(
+            { error: 'Cloudflare Stream service is temporarily unavailable. Please try again in a few minutes.' },
+            { status: 503 }
+          );
+        }
+
+        const errorMessage = errorData.errors?.[0]?.message || 'Cloudflare Stream rejected the upload';
         return NextResponse.json(
-          { error: errorData.errors?.[0]?.message || 'Failed to initialize Cloudflare Stream upload' },
+          { error: errorMessage.includes('rejected') || errorMessage.includes('failed') ? errorMessage : `${errorMessage}. Please try again or use YouTube instead.` },
           { status: directUploadResponse.status }
         );
       }
@@ -155,8 +182,35 @@ export async function POST(request: Request) {
       if (!tusResponse.ok) {
         const errorData = await tusResponse.json().catch(() => ({}));
         console.error('Cloudflare Stream TUS upload error:', errorData);
+
+        // Handle specific error cases
+        if (tusResponse.status === 429) {
+          return NextResponse.json(
+            { error: 'Cloudflare API rate limit exceeded. Please wait a few minutes and try again.' },
+            { status: 429 }
+          );
+        }
+
+        if (tusResponse.status === 402 || tusResponse.status === 403) {
+          const errorMessage = errorData.errors?.[0]?.message?.toLowerCase() || '';
+          if (errorMessage.includes('quota') || errorMessage.includes('limit') || errorMessage.includes('subscription')) {
+            return NextResponse.json(
+              { error: 'Cloudflare Stream quota exceeded. Please try again later or contact support.' },
+              { status: tusResponse.status }
+            );
+          }
+        }
+
+        if (tusResponse.status === 503) {
+          return NextResponse.json(
+            { error: 'Cloudflare Stream service is temporarily unavailable. Please try again in a few minutes.' },
+            { status: 503 }
+          );
+        }
+
+        const errorMessage = errorData.errors?.[0]?.message || 'Cloudflare Stream rejected the TUS upload';
         return NextResponse.json(
-          { error: errorData.errors?.[0]?.message || 'Failed to initialize Cloudflare Stream TUS upload' },
+          { error: errorMessage.includes('rejected') || errorMessage.includes('failed') ? errorMessage : `${errorMessage}. Please try again or use YouTube instead.` },
           { status: tusResponse.status }
         );
       }
