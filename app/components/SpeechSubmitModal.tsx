@@ -137,7 +137,8 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     formData: FormData | null,
     jsonData: object | null,
     onProgress: (progress: number) => void,
-    headers?: Record<string, string>
+    headers?: Record<string, string>,
+    withCredentials: boolean = true
   ): Promise<Response> => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -176,8 +177,8 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         });
       }
 
-      // Add credentials
-      xhr.withCredentials = true;
+      // Set credentials (default to true for backward compatibility)
+      xhr.withCredentials = withCredentials;
 
       if (jsonData) {
         xhr.setRequestHeader('Content-Type', 'application/json');
@@ -289,7 +290,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 // Scale progress from 10-90% during upload
                 const scaledProgress = 10 + Math.floor((progress / 100) * 80);
                 setUploadProgress(scaledProgress);
-              }
+              },
+              undefined,
+              false // Don't send credentials to Cloudflare Stream
             );
 
             if (!uploadResponse.ok) {
@@ -429,7 +432,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
               // Scale progress from 10-90% during upload
               const scaledProgress = 10 + Math.floor((progress / 100) * 80);
               setUploadProgress(scaledProgress);
-            }
+            },
+            undefined,
+            false // Don't send credentials to Supabase Storage (signed URL already has auth token)
           );
 
           if (!uploadResponse.ok) {
