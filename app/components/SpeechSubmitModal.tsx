@@ -4,6 +4,7 @@ import { useState } from 'react';
 import * as tus from 'tus-js-client';
 import { createClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
+import { hasYouTubeUploadScope, requestYouTubeUploadAuth } from '@/lib/youtube-auth';
 
 interface SpeechSubmitModalProps {
   isOpen: boolean;
@@ -12,15 +13,19 @@ interface SpeechSubmitModalProps {
 }
 
 type SubmissionType = 'video' | 'audio' | 'youtube-link';
+type UploadDestination = 'cloudflare' | 'youtube';
 
 export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: SpeechSubmitModalProps) {
   const [submissionType, setSubmissionType] = useState<SubmissionType>('video');
+  const [uploadDestination, setUploadDestination] = useState<UploadDestination>('cloudflare');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(false);
   const supabase = createClient();
 
   // Validate YouTube URL format
@@ -92,6 +97,64 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     });
   };
 
+  // Helper function for YouTube resumable chunk uploads (PUT method with raw blob)
+  const uploadYouTubeChunk = (
+    url: string,
+    chunk: Blob,
+    contentRange: string,
+    contentType: string,
+    onProgress: (progress: number) => void
+  ): Promise<Response> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      // Track upload progress
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        }
+      };
+
+      xhr.onload = () => {
+        // 200 = complete, 308 = resume incomplete (need to continue)
+        if (xhr.status === 200 || xhr.status === 308) {
+          // Create Response with headers
+          const responseHeaders = new Headers();
+          responseHeaders.set('Content-Type', xhr.getResponseHeader('Content-Type') || 'application/json');
+          const rangeHeader = xhr.getResponseHeader('Range');
+          if (rangeHeader) {
+            responseHeaders.set('Range', rangeHeader);
+          }
+
+          const response = new Response(xhr.responseText || xhr.response, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: responseHeaders,
+          });
+          resolve(response);
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      xhr.onabort = () => reject(new Error('Upload aborted'));
+
+      // Use PUT for YouTube resumable uploads
+      xhr.open('PUT', url);
+
+      // Set required headers
+      xhr.setRequestHeader('Content-Type', contentType);
+      xhr.setRequestHeader('Content-Range', contentRange);
+
+      // Don't send credentials to YouTube
+      xhr.withCredentials = false;
+
+      xhr.send(chunk);
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -114,7 +177,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       let streamVideoUrl = '';
 
       if (submissionType === 'video') {
-        // Upload video to Cloudflare Stream
+        // Upload video to Cloudflare Stream or YouTube
         if (!videoFile) {
           const errorMessage = 'Please select a video file';
           setError(errorMessage);
@@ -133,12 +196,170 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           return;
         }
 
-        // Initialize Cloudflare Stream upload (get upload URL)
-        // Raw video files are uploaded directly - Cloudflare handles encoding server-side
+        // Check YouTube authentication if YouTube is selected
+        if (uploadDestination === 'youtube') {
+          const hasScope = await hasYouTubeUploadScope();
+          if (!hasScope) {
+            setShowAuthPopup(true);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Initialize upload (Cloudflare Stream or YouTube)
         setUploadProgress(5);
 
-        let initResponse;
-        try {
+        // YouTube upload flow
+        if (uploadDestination === 'youtube') {
+          try {
+            // Step 1: Initialize YouTube resumable upload
+            const initResponse = await fetch('/api/youtube/init', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                fileName: videoFile.name,
+                fileSize: videoFile.size,
+                fileType: videoFile.type,
+              }),
+            });
+
+            const initData = await initResponse.json();
+            console.log('[DEBUG] /api/youtube/init response:', { status: initResponse.status, data: initData });
+
+            if (!initResponse.ok) {
+              const errorMessage = initData.error || 'Failed to initialize YouTube upload';
+              setError(errorMessage);
+              toast.error(errorMessage);
+              setLoading(false);
+              return;
+            }
+
+            const resumableUploadUrl = initData.upload_url;
+            setUploadProgress(10);
+
+            // Step 2: Upload video to YouTube using resumable protocol
+            // YouTube resumable upload: upload in chunks and track progress
+            const chunkSize = 256 * 1024; // 256KB chunks
+            let bytesUploaded = 0;
+            let youtubeVideoId = '';
+
+            while (bytesUploaded < videoFile.size) {
+              const chunk = videoFile.slice(bytesUploaded, Math.min(bytesUploaded + chunkSize, videoFile.size));
+              const chunkEnd = bytesUploaded + chunk.size - 1;
+
+              // Determine Content-Range header
+              const contentRange = `bytes ${bytesUploaded}-${chunkEnd}/${videoFile.size}`;
+
+              try {
+                const chunkResponse = await uploadYouTubeChunk(
+                  resumableUploadUrl,
+                  chunk,
+                  contentRange,
+                  videoFile.type,
+                  (chunkProgress) => {
+                    // Scale progress from 10-90% during upload
+                    const totalProgress = bytesUploaded + (chunkProgress / 100) * chunk.size;
+                    const scaledProgress = 10 + Math.floor((totalProgress / videoFile.size) * 80);
+                    setUploadProgress(Math.min(90, scaledProgress));
+                  }
+                );
+
+                // Check if we need to resume (308 Resume Incomplete)
+                if (chunkResponse.status === 308) {
+                  const rangeHeader = chunkResponse.headers.get('Range');
+                  if (rangeHeader) {
+                    // Extract uploaded bytes from Range header (e.g., "bytes=0-12345")
+                    const match = rangeHeader.match(/bytes=0-(\d+)/);
+                    if (match) {
+                      bytesUploaded = parseInt(match[1]) + 1;
+                      continue; // Resume from where we left off
+                    }
+                  }
+                }
+
+                // If upload is complete (200), get the video ID
+                if (chunkResponse.status === 200) {
+                  const videoData = await chunkResponse.json();
+                  youtubeVideoId = videoData.id;
+                  setUploadProgress(90);
+                  break;
+                }
+
+                // Move to next chunk
+                bytesUploaded = chunkEnd + 1;
+              } catch (chunkError: unknown) {
+                const error = chunkError as { message?: string };
+                // Try to resume on error
+                if (bytesUploaded > 0) {
+                  // Check upload status before resuming
+                  try {
+                    const statusResponse = await fetch(resumableUploadUrl, {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Range': `bytes */${videoFile.size}`,
+                      },
+                    });
+
+                    if (statusResponse.status === 308) {
+                      const rangeHeader = statusResponse.headers.get('Range');
+                      if (rangeHeader) {
+                        const match = rangeHeader.match(/bytes=0-(\d+)/);
+                        if (match) {
+                          bytesUploaded = parseInt(match[1]) + 1;
+                          continue; // Resume from where we left off
+                        }
+                      }
+                    }
+                  } catch {
+                    // If status check fails, throw original error
+                  }
+                }
+
+                const errorMessage = error.message || `Upload failed at byte ${bytesUploaded}`;
+                toast.error(errorMessage);
+                throw new Error(errorMessage);
+              }
+            }
+
+            if (!youtubeVideoId) {
+              throw new Error('Failed to get YouTube video ID from upload response');
+            }
+
+            // Construct YouTube watch URL
+            streamVideoUrl = `https://www.youtube.com/watch?v=${youtubeVideoId}`;
+            setUploadProgress(95);
+
+            // Submit YouTube URL to speeches API
+            response = await fetch('/api/speeches/submit', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ speech_url: streamVideoUrl }),
+            });
+
+            setUploadProgress(100);
+          } catch (fetchError: unknown) {
+            const error = fetchError as { message?: string };
+            let errorMessage = '';
+            if (error.message?.includes('Failed to fetch') || error.message?.includes('SSL') || error.message?.includes('ERR_SSL')) {
+              errorMessage = 'Connection error during upload - this can happen with large files. Please try again or use a smaller file.';
+            } else {
+              errorMessage = error.message || 'Failed to upload video to YouTube';
+            }
+            setError(errorMessage);
+            toast.error(errorMessage);
+            setLoading(false);
+            return;
+          }
+        } else {
+          // Cloudflare Stream upload flow (existing code)
+          let initResponse;
+          try {
           console.log('[DEBUG] Calling /api/cloudflare-stream/init with credentials');
           initResponse = await fetch('/api/cloudflare-stream/init', {
             method: 'POST',
@@ -270,6 +491,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           toast.error(errorMessage);
           setLoading(false);
           return;
+          }
         }
       } else if (submissionType === 'audio') {
         // Upload audio file directly to Supabase Storage using signed URL
@@ -434,7 +656,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       if (submissionType === 'audio') {
         toast.success('Audio uploaded successfully! Please wait 3-5 minutes for processing on the provider&apos;s servers.');
       } else if (submissionType === 'video') {
-        toast.success('Video uploaded successfully!');
+        toast.success(`Video uploaded successfully to ${uploadDestination === 'cloudflare' ? 'Cloudflare Stream' : 'YouTube'}! Please allow a few minutes for the video to process.`);
       } else {
         toast.success('Speech submitted successfully!');
       }
@@ -487,6 +709,33 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     setError('');
   };
 
+  const handleAuthPopupConfirm = async () => {
+    setIsCheckingAuth(true);
+    try {
+      const authUrl = await requestYouTubeUploadAuth();
+      if (authUrl) {
+        // Redirect to Google OAuth
+        window.location.href = authUrl;
+      } else {
+        setError('Failed to start authentication. Please try again.');
+        toast.error('Failed to start authentication');
+        setShowAuthPopup(false);
+        setIsCheckingAuth(false);
+      }
+    } catch (err) {
+      console.error('Error requesting YouTube auth:', err);
+      setError('Failed to start authentication. Please try again.');
+      toast.error('Failed to start authentication');
+      setShowAuthPopup(false);
+      setIsCheckingAuth(false);
+    }
+  };
+
+  const handleAuthPopupCancel = () => {
+    setShowAuthPopup(false);
+    setLoading(false);
+  };
+
   const handleClose = () => {
     setVideoFile(null);
     setAudioFile(null);
@@ -494,20 +743,69 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     setError('');
     setUploadProgress(0);
     setSubmissionType('video');
+    setUploadDestination('cloudflare');
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
-      onClick={handleClose}
-    >
+    <>
+      {/* Auth Popup Modal */}
+      {showAuthPopup && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60"
+          onClick={handleAuthPopupCancel}
+        >
+          <div
+            className="brutal-card p-6 sm:p-8 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-extrabold mb-4" style={{ color: '#1a1a1a' }}>
+              YouTube Upload Permission Required
+            </h2>
+            <p className="text-sm mb-6" style={{ color: '#1a1a1a' }}>
+              To upload videos to YouTube, you need to grant YouTube upload permissions. 
+              You&apos;ll be redirected to sign in with Google and grant access.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={handleAuthPopupCancel}
+                disabled={isCheckingAuth}
+                className="brutal-button px-6 py-2 text-base disabled:opacity-50 bg-white"
+                style={{
+                  color: '#1a1a1a'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAuthPopupConfirm}
+                disabled={isCheckingAuth}
+                className="brutal-button px-6 py-2 text-base disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--secondary)',
+                  color: '#1a1a1a'
+                }}
+              >
+                {isCheckingAuth ? 'Redirecting...' : 'Sign In & Grant Access'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Modal */}
       <div
-        className="brutal-card p-6 sm:p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+        onClick={handleClose}
       >
+        <div
+          className="brutal-card p-6 sm:p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
         <h2 className="text-2xl font-extrabold mb-4" style={{ color: '#1a1a1a' }}>Submit New Speech</h2>
         
         {/* Submission Type Tabs */}
@@ -577,8 +875,44 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                   Selected: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
               )}
+              
+              {/* Upload Destination Selection */}
+              <div className="mt-4 mb-2">
+                <label className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
+                  Upload Destination
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUploadDestination('cloudflare')}
+                    disabled={loading}
+                    className="flex-1 px-4 py-3 brutal-border rounded-lg font-bold text-xs transition-all disabled:opacity-50"
+                    style={{
+                      backgroundColor: uploadDestination === 'cloudflare' ? 'var(--primary)' : '#ffffff',
+                      color: uploadDestination === 'cloudflare' ? '#ffffff' : '#1a1a1a',
+                      boxShadow: uploadDestination === 'cloudflare' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
+                    }}
+                  >
+                    Cloudflare
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadDestination('youtube')}
+                    disabled={loading}
+                    className="flex-1 px-4 py-3 brutal-border rounded-lg font-bold text-xs transition-all disabled:opacity-50"
+                    style={{
+                      backgroundColor: uploadDestination === 'youtube' ? 'var(--primary)' : '#ffffff',
+                      color: uploadDestination === 'youtube' ? '#ffffff' : '#1a1a1a',
+                      boxShadow: uploadDestination === 'youtube' ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
+                    }}
+                  >
+                    YouTube
+                  </button>
+                </div>
+              </div>
+              
               <p className="text-xs mt-1" style={{ color: '#666' }}>
-                Maximum file size: 1.5 GB. Video will be uploaded to Cloudflare Stream.
+                Maximum file size: 1.5 GB. Video will be uploaded to {uploadDestination === 'cloudflare' ? 'Cloudflare Stream' : 'YouTube (unlisted)'}.
               </p>
 
               {uploadProgress > 0 && uploadProgress < 100 && (
@@ -593,7 +927,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                     ></div>
                   </div>
                   <p className="text-xs font-bold mt-1 text-center" style={{ color: '#1a1a1a' }}>
-                    {uploadProgress < 50 ? 'Uploading video to Cloudflare Stream (this may take a while for large files)...' : uploadProgress < 70 ? 'Processing upload...' : 'Submitting speech...'} {uploadProgress}%
+                    {uploadProgress < 50 ? `Uploading video to ${uploadDestination === 'cloudflare' ? 'Cloudflare Stream' : 'YouTube'} (this may take a while for large files)...` : uploadProgress < 70 ? 'Processing upload...' : 'Submitting speech...'} {uploadProgress}%
                   </p>
                   <p className="text-xs mt-2 text-center" style={{ color: '#666' }}>
                     You can leave this tab open - the upload will continue in the background
@@ -716,6 +1050,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         </form>
       </div>
     </div>
+    </>
   );
 }
 

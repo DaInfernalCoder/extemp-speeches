@@ -105,7 +105,9 @@ The application uses **Supabase** for authentication, data storage, and file sto
   - `feature_requests`: Stores user-submitted feature requests with title and description
 - **Storage Buckets**:
   - `speech-audio`: Stores uploaded audio files (public read, authenticated write, 50 MB limit)
-- **Authentication**: Google OAuth via Supabase Auth (no provider-specific scopes required - used for authentication only)
+- **Authentication**: Google OAuth via Supabase Auth
+  - Default login requests `https://www.googleapis.com/auth/youtube.upload` scope for YouTube video uploads
+  - Helper functions in [lib/youtube-auth.ts](lib/youtube-auth.ts) for checking YouTube upload permissions and triggering re-authentication if needed
 - **Real-time**: Leaderboard and ballots update live when speeches or ballots are submitted
 - **RLS (Row Level Security)**: Enabled on all tables and storage buckets for security
 
@@ -146,6 +148,18 @@ The application uses **Resend** for email delivery:
   - Uses CLOUDFLARE_STREAM_API_TOKEN and CLOUDFLARE_ACCOUNT_ID from environment
   - Configured with maxDuration of 60 seconds
   - Client uploads file directly to Cloudflare Stream (bypasses server timeout limits)
+
+- **POST /api/youtube/init**: Initialize YouTube resumable upload session
+  - Accepts JSON with file metadata (fileName, fileSize, fileType)
+  - Validates file type (video/*) and size (max 1.5 GB)
+  - Creates resumable upload session via YouTube Data API v3
+  - Sets video metadata (title, description, privacyStatus: "unlisted")
+  - Returns resumable upload URL (Location header from YouTube API)
+  - Fast endpoint (~1-2 seconds) - only initializes upload session
+  - Requires authentication with Google OAuth token that has `youtube.upload` scope
+  - Uses provider_token from Supabase session for YouTube API authorization
+  - Configured with maxDuration of 60 seconds
+  - Client uploads video file directly to YouTube using resumable protocol (bypasses server timeout limits)
 
 - **POST /api/storage/signed-url**: Get signed upload URL for Supabase Storage
   - Accepts JSON with file metadata (fileName, fileSize, fileType, bucket)
@@ -242,19 +256,32 @@ The application features:
   
 - **SpeechSubmitModal Component** ([app/components/SpeechSubmitModal.tsx](app/components/SpeechSubmitModal.tsx)):
   - Tabbed interface for choosing between video upload, YouTube link, or audio upload
-  - Upload Video tab: File input for video files (max 1.5 GB), uses client-side direct upload to Cloudflare Stream
-    - Calls `/api/cloudflare-stream/init` to get upload URL (fast, ~1-2 seconds)
-    - Raw video files uploaded directly without compression (Cloudflare handles encoding server-side)
-    - For files <=200MB: Direct POST upload to Cloudflare Stream upload URL
-    - For files >200MB: TUS resumable upload using `tus-js-client` library
-      - 5MB chunks with automatic retry (0ms, 3s, 5s, 10s, 20s delays)
-      - Built-in session persistence (auto-resume if browser closes)
-      - Handles network interruptions gracefully with exponential backoff
-      - No manual timeout management needed
-    - Real-time progress tracking (5-90% for upload, 90-95% for speech submission)
-    - No server timeout limits (upload happens client → Cloudflare Stream directly)
-    - Extracts video UID from upload URL
-    - Optimized for speed: no browser-based compression (Cloudflare charges by minute, not GB, and handles encoding server-side)
+  - Upload Video tab: File input for video files (max 1.5 GB), with option to upload to Cloudflare Stream or YouTube
+    - **Upload Destination Selection**: Radio buttons to choose between Cloudflare or YouTube
+    - **Cloudflare Stream Upload**:
+      - Calls `/api/cloudflare-stream/init` to get upload URL (fast, ~1-2 seconds)
+      - Raw video files uploaded directly without compression (Cloudflare handles encoding server-side)
+      - For files <=200MB: Direct POST upload to Cloudflare Stream upload URL
+      - For files >200MB: TUS resumable upload using `tus-js-client` library
+        - 5MB chunks with automatic retry (0ms, 3s, 5s, 10s, 20s delays)
+        - Built-in session persistence (auto-resume if browser closes)
+        - Handles network interruptions gracefully with exponential backoff
+        - No manual timeout management needed
+      - Real-time progress tracking (5-90% for upload, 90-95% for speech submission)
+      - No server timeout limits (upload happens client → Cloudflare Stream directly)
+      - Extracts video UID from upload URL
+      - Optimized for speed: no browser-based compression (Cloudflare charges by minute, not GB, and handles encoding server-side)
+    - **YouTube Upload**:
+      - Checks for YouTube upload permissions (`youtube.upload` scope) - shows popup if missing
+      - Popup allows user to re-authenticate with Google to grant YouTube upload permissions
+      - Calls `/api/youtube/init` to get resumable upload URL (fast, ~1-2 seconds)
+      - Uploads video file in chunks using YouTube's native resumable upload protocol (PUT requests)
+      - 256KB chunks with progress tracking via Content-Range headers
+      - Handles resume on network interruption (308 status codes)
+      - Videos uploaded as unlisted (privacyStatus: "unlisted")
+      - Real-time progress tracking (10-90% for upload, 90-95% for speech submission)
+      - Extracts video ID from YouTube API response and constructs watch URL
+      - No server timeout limits (upload happens client → YouTube directly)
   - YouTube Link tab: Text input for pasting existing YouTube URLs, validates format, submits directly to speeches API
   - Upload Audio tab: File input for audio files (max 50 MB), uses client-side direct upload to Supabase Storage
     - Calls `/api/storage/signed-url` to get signed upload URL (fast, ~200-500ms)
@@ -298,6 +325,7 @@ The application features:
 - **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, BallotViewModal, FeatureRequestModal)
 - **app/api/**: API route handlers for backend operations
   - `cloudflare-stream/init/`: Cloudflare Stream upload initialization
+  - `youtube/init/`: YouTube resumable upload session initialization
   - `speeches/`: Fetch speeches for ballot selection
   - `speeches/submit/`: Speech submission endpoint
   - `ballots/submit/`: Ballot submission endpoint
@@ -311,6 +339,10 @@ The application features:
   - `client.ts`: Browser client for client components
   - `server.ts`: Server client for server components and API routes
   - `middleware.ts`: Middleware client for session refresh
+- **lib/youtube-auth.ts**: YouTube authentication helper functions
+  - `hasYouTubeUploadScope()`: Check if user's session has YouTube upload permissions
+  - `getGoogleAccessToken()`: Get Google provider token from Supabase session
+  - `requestYouTubeUploadAuth()`: Trigger re-authentication with YouTube upload scope
 - **lib/resend.ts**: Email template functions for transactional and reminder emails
 
 The codebase follows Next.js conventions:
