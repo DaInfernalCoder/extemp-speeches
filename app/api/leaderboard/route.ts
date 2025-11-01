@@ -32,7 +32,7 @@ export async function GET() {
           user_id,
           speech_url,
           week_start_date,
-          users(name, avatar_url),
+          users!speeches_user_id_fkey(name, avatar_url),
           ballots(
             id,
             gestures,
