@@ -15,10 +15,9 @@
  *   node scripts/test-uploads.js --test-audio              Test audio upload endpoint (requires auth token)
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
-const http = require('http');
 
 // Configuration
 const TEST_DIR = path.join(__dirname, '..', 'test-files');
@@ -36,7 +35,7 @@ function formatBytes(bytes) {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
-function createTestFile(filePath, sizeInMB, fileType = 'bin') {
+function createTestFile(filePath, sizeInMB) {
   return new Promise((resolve, reject) => {
     const sizeInBytes = sizeInMB * 1024 * 1024;
     let written = 0;
@@ -88,7 +87,6 @@ async function generateTestFiles(type = 'all', customSizes = null) {
   }
 
   const sizes = customSizes || (type === 'audio' ? DEFAULT_SIZES.audio : type === 'video' ? DEFAULT_SIZES.video : [...DEFAULT_SIZES.audio, ...DEFAULT_SIZES.video]);
-  const fileType = type === 'audio' ? 'audio/mp3' : 'video/mp4';
   const ext = type === 'audio' ? 'mp3' : 'mp4';
 
   console.log(`\n📁 Generating ${type} test files in ${TEST_DIR}...\n`);

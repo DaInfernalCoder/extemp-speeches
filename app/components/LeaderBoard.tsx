@@ -51,8 +51,7 @@ interface PodiumData {
 const PodiumCard: React.FC<{ data: PodiumData; height: string; bgColor: string; borderColor: string }> = ({
   data,
   height,
-  bgColor,
-  borderColor
+  bgColor
 }) => (
   <div className={`flex flex-col items-center ${height} relative transition-all duration-200`}>
     {/* Avatar */}

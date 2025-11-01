@@ -22,7 +22,7 @@ interface BallotViewModalProps {
   speechTitle: string;
 }
 
-export default function BallotViewModal({ isOpen, onClose, ballots, speechTitle }: BallotViewModalProps) {
+export default function BallotViewModal({ isOpen, onClose, ballots }: BallotViewModalProps) {
   const [selectedBallotIndex, setSelectedBallotIndex] = useState(0);
 
   const selectedBallot = ballots.length > 0 ? ballots[selectedBallotIndex] : null;
