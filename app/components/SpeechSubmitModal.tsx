@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import * as tus from 'tus-js-client';
 import { createClient } from '@/lib/supabase/client';
+import toast from 'react-hot-toast';
 
 interface SpeechSubmitModalProps {
   isOpen: boolean;
@@ -102,7 +103,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       const { data: { user } } = await supabase.auth.getUser();
       console.log('[DEBUG] User authentication check:', { user: user?.id, email: user?.email });
       if (!user) {
-        setError('You must be logged in to submit a speech');
+        const errorMessage = 'You must be logged in to submit a speech';
+        setError(errorMessage);
+        toast.error(errorMessage);
         setLoading(false);
         return;
       }
@@ -113,7 +116,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       if (submissionType === 'video') {
         // Upload video to Cloudflare Stream
         if (!videoFile) {
-          setError('Please select a video file');
+          const errorMessage = 'Please select a video file';
+          setError(errorMessage);
+          toast.error(errorMessage);
           setLoading(false);
           return;
         }
@@ -121,7 +126,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         // Validate file size (1.5 GB)
         const maxSize = 1.5 * 1024 * 1024 * 1024;
         if (videoFile.size > maxSize) {
-          setError('Video file must be less than 1.5 GB');
+          const errorMessage = 'Video file must be less than 1.5 GB';
+          setError(errorMessage);
+          toast.error(errorMessage);
           setLoading(false);
           return;
         }
@@ -151,7 +158,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
           if (!initResponse.ok) {
             console.error('[DEBUG] Cloudflare init failed with status:', initResponse.status, initData);
-            setError(initData.error || 'Failed to initialize Cloudflare Stream upload');
+            const errorMessage = initData.error || 'Failed to initialize Cloudflare Stream upload';
+            setError(errorMessage);
+            toast.error(errorMessage);
             setLoading(false);
             return;
           }
@@ -183,7 +192,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
             );
 
             if (!uploadResponse.ok) {
-              throw new Error('Failed to upload video to Cloudflare Stream');
+              const errorMessage = 'Failed to upload video to Cloudflare Stream';
+              toast.error(errorMessage);
+              throw new Error(errorMessage);
             }
 
             // Construct playback URL from UID
@@ -221,6 +232,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                   resolve();
                 },
                 onError: (error: Error) => {
+                  toast.error(`Upload failed: ${error.message}`);
                   reject(new Error(`TUS upload failed: ${error.message}`));
                 },
               });
@@ -248,18 +260,23 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           setUploadProgress(100);
         } catch (fetchError: unknown) {
           const error = fetchError as { message?: string };
+          let errorMessage = '';
           if (error.message?.includes('Failed to fetch') || error.message?.includes('SSL') || error.message?.includes('ERR_SSL')) {
-            setError('Connection error during upload - this can happen with large files. Please try again or use a smaller file.');
+            errorMessage = 'Connection error during upload - this can happen with large files. Please try again or use a smaller file.';
           } else {
-            setError(error.message || 'Failed to upload video to Cloudflare Stream');
+            errorMessage = error.message || 'Failed to upload video to Cloudflare Stream';
           }
+          setError(errorMessage);
+          toast.error(errorMessage);
           setLoading(false);
           return;
         }
       } else if (submissionType === 'audio') {
         // Upload audio file directly to Supabase Storage using signed URL
         if (!audioFile) {
-          setError('Please select an audio file');
+          const errorMessage = 'Please select an audio file';
+          setError(errorMessage);
+          toast.error(errorMessage);
           setLoading(false);
           return;
         }
@@ -267,7 +284,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
         // Validate file size (50 MB)
         const maxSize = 50 * 1024 * 1024;
         if (audioFile.size > maxSize) {
-          setError('Audio file must be less than 50 MB');
+          const errorMessage = 'Audio file must be less than 50 MB';
+          setError(errorMessage);
+          toast.error(errorMessage);
           setLoading(false);
           return;
         }
@@ -296,7 +315,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
           if (!signedUrlResponse.ok) {
             console.error('[DEBUG] Signed URL generation failed:', signedUrlResponse.status, signedUrlData);
-            setError(signedUrlData.error || 'Failed to initialize audio upload');
+            const errorMessage = signedUrlData.error || 'Failed to initialize audio upload';
+            setError(errorMessage);
+            toast.error(errorMessage);
             setLoading(false);
             return;
           }
@@ -310,7 +331,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           // Get user's access token for Authorization header
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
-            setError('Authentication session not found');
+            const errorMessage = 'Authentication session not found';
+            setError(errorMessage);
+            toast.error(errorMessage);
             setLoading(false);
             return;
           }
@@ -335,7 +358,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           );
 
           if (!uploadResponse.ok) {
-            throw new Error('Failed to upload audio to Supabase Storage');
+            const errorMessage = 'Failed to upload audio to Supabase Storage';
+            toast.error(errorMessage);
+            throw new Error(errorMessage);
           }
 
           setUploadProgress(90);
@@ -353,25 +378,32 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           setUploadProgress(100);
         } catch (fetchError: unknown) {
           const error = fetchError as { message?: string };
+          let errorMessage = '';
           if (error.message?.includes('Failed to fetch') || error.message?.includes('SSL') || error.message?.includes('ERR_SSL')) {
-            setError('Connection error during upload - this can happen with large files. Please try again or use a smaller file.');
+            errorMessage = 'Connection error during upload - this can happen with large files. Please try again or use a smaller file.';
           } else {
-            setError(error.message || 'Failed to upload audio file');
+            errorMessage = error.message || 'Failed to upload audio file';
           }
+          setError(errorMessage);
+          toast.error(errorMessage);
           setLoading(false);
           return;
         }
       } else {
         // Submit YouTube link
         if (!youtubeUrl.trim()) {
-          setError('Please enter a YouTube URL');
+          const errorMessage = 'Please enter a YouTube URL';
+          setError(errorMessage);
+          toast.error(errorMessage);
           setLoading(false);
           return;
         }
 
         // Validate YouTube URL format
         if (!isValidYouTubeUrl(youtubeUrl.trim())) {
-          setError('Invalid YouTube URL format. Please provide a valid YouTube link (e.g., https://www.youtube.com/watch?v=...)');
+          const errorMessage = 'Invalid YouTube URL format. Please provide a valid YouTube link (e.g., https://www.youtube.com/watch?v=...)';
+          setError(errorMessage);
+          toast.error(errorMessage);
           setLoading(false);
           return;
         }
@@ -391,9 +423,20 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Failed to submit speech');
+        const errorMessage = data.error || 'Failed to submit speech';
+        setError(errorMessage);
+        toast.error(errorMessage);
         setLoading(false);
         return;
+      }
+
+      // Success - show toast notification
+      if (submissionType === 'audio') {
+        toast.success('Audio uploaded successfully! Please wait 3-5 minutes for processing on the provider&apos;s servers.');
+      } else if (submissionType === 'video') {
+        toast.success('Video uploaded successfully!');
+      } else {
+        toast.success('Speech submitted successfully!');
       }
 
       // Success
@@ -405,7 +448,9 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
       onClose();
     } catch (err) {
       console.error('Error submitting speech:', err);
-      setError('An unexpected error occurred');
+      const errorMessage = 'An unexpected error occurred';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
