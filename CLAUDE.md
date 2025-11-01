@@ -147,10 +147,21 @@ The application uses **Resend** for email delivery:
   - Configured with maxDuration of 60 seconds
   - Client uploads file directly to Cloudflare Stream (bypasses server timeout limits)
 
+- **POST /api/storage/signed-url**: Get signed upload URL for Supabase Storage
+  - Accepts JSON with file metadata (fileName, fileSize, fileType, bucket)
+  - Validates file type (audio/* for speech-audio bucket) and size (max 50 MB for audio)
+  - Generates unique file path and creates signed upload URL (valid for 1 hour)
+  - Returns signed_url (for direct upload), public_url (for speech submission), and file_path
+  - Fast endpoint (~200-500ms) - only generates signed URL
+  - Requires authentication
+  - Used by audio upload flow to bypass Vercel payload limits
+  - Client uploads file directly to Supabase Storage using signed URL
+
 - **POST /api/speeches/submit**: Submit a new speech with Cloudflare Stream URL/UID or audio file
-  - Accepts either JSON (Cloudflare Stream URL or video UID) or multipart/form-data (audio file upload)
+  - Accepts JSON with speech_url (YouTube URL, Cloudflare Stream URL/UID, or Supabase Storage URL)
   - For Cloudflare Stream: Validates URL format (accepts cloudflarestream.com URLs, videodelivery.net URLs, or video UIDs)
-  - For audio: Validates file type and size (max 50 MB), uploads to Supabase Storage
+  - For audio: Accepts Supabase Storage URLs (uploaded via signed URL from /api/storage/signed-url)
+  - For YouTube: Accepts valid YouTube URLs
   - Checks for duplicate URLs per user
   - Calculates week start date (Monday)
   - Requires authentication
@@ -230,7 +241,7 @@ The application features:
   - Shows user state
   
 - **SpeechSubmitModal Component** ([app/components/SpeechSubmitModal.tsx](app/components/SpeechSubmitModal.tsx)):
-  - Tabbed interface for choosing between video upload, Stream link, or audio upload
+  - Tabbed interface for choosing between video upload, YouTube link, or audio upload
   - Upload Video tab: File input for video files (max 1.5 GB), uses client-side direct upload to Cloudflare Stream
     - Calls `/api/cloudflare-stream/init` to get upload URL (fast, ~1-2 seconds)
     - For files <=200MB: Direct POST upload to Cloudflare Stream upload URL
@@ -242,8 +253,13 @@ The application features:
     - Real-time progress tracking (10-90% for upload, 95% for speech submission)
     - No server timeout limits (upload happens client → Cloudflare Stream directly)
     - Extracts video UID from upload URL
-  - Stream Link tab: Text input for pasting existing Cloudflare Stream URLs or video UIDs, validates format, submits directly to speeches API
-  - Upload Audio tab: File input for audio files (max 50 MB), uploads to Supabase Storage, shows progress indicator
+  - YouTube Link tab: Text input for pasting existing YouTube URLs, validates format, submits directly to speeches API
+  - Upload Audio tab: File input for audio files (max 50 MB), uses client-side direct upload to Supabase Storage
+    - Calls `/api/storage/signed-url` to get signed upload URL (fast, ~200-500ms)
+    - Direct upload to Supabase Storage using signed URL
+    - Real-time progress tracking (10-90% for upload, 95% for speech submission)
+    - No server timeout limits (upload happens client → Supabase Storage directly)
+    - Bypasses Vercel payload limits by uploading directly to Supabase
   - Client-side and server-side validation
   - Duplicate detection
 

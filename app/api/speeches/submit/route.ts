@@ -45,90 +45,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const contentType = request.headers.get('content-type') || '';
+    // Handle application/json (YouTube URL, Stream UID, or Supabase Storage URL)
+    const body = await request.json();
+    const { speech_url } = body;
+
+    if (!speech_url) {
+      return NextResponse.json(
+        { error: 'Speech URL is required' },
+        { status: 400 }
+      );
+    }
+
     let speechUrl: string;
 
-    // Handle multipart/form-data (audio file upload)
-    if (contentType.includes('multipart/form-data')) {
-      const formData = await request.formData();
-      const audioFile = formData.get('audio_file') as File | null;
-
-      if (!audioFile) {
-        return NextResponse.json(
-          { error: 'Audio file is required' },
-          { status: 400 }
-        );
-      }
-
-      // Validate file size (50 MB)
-      const maxSize = 50 * 1024 * 1024;
-      if (audioFile.size > maxSize) {
-        return NextResponse.json(
-          { error: 'Audio file must be less than 50 MB' },
-          { status: 400 }
-        );
-      }
-
-      // Validate file type
-      if (!audioFile.type.startsWith('audio/')) {
-        return NextResponse.json(
-          { error: 'Invalid file type. Please upload an audio file.' },
-          { status: 400 }
-        );
-      }
-
-      // Upload to Supabase Storage
-      const fileExt = audioFile.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('speech-audio')
-        .upload(fileName, audioFile, {
-          contentType: audioFile.type,
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error('Error uploading audio:', uploadError);
-        return NextResponse.json(
-          { error: 'Failed to upload audio file' },
-          { status: 500 }
-        );
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('speech-audio')
-        .getPublicUrl(uploadData.path);
-
-      speechUrl = publicUrl;
-    } 
-    // Handle application/json (YouTube URL from YouTube Link tab, or Stream UID from video upload)
+    // Check if it's a YouTube URL
+    if (isValidYouTubeUrl(speech_url)) {
+      speechUrl = speech_url;
+    }
+    // Check if it's a Cloudflare Stream UID/URL
+    else if (isValidCloudflareStreamUrl(speech_url)) {
+      speechUrl = speech_url;
+    }
+    // Check if it's a Supabase Storage URL (audio file uploaded via signed URL)
+    else if (speech_url.includes('supabase') && speech_url.includes('storage')) {
+      speechUrl = speech_url;
+    }
     else {
-      const body = await request.json();
-      const { speech_url } = body;
-
-      if (!speech_url) {
-        return NextResponse.json(
-          { error: 'Speech URL is required' },
-          { status: 400 }
-        );
-      }
-
-      // Check if it's a YouTube URL (from YouTube Link tab)
-      if (isValidYouTubeUrl(speech_url)) {
-        speechUrl = speech_url;
-      } 
-      // Check if it's a Cloudflare Stream UID/URL (from video upload)
-      else if (isValidCloudflareStreamUrl(speech_url)) {
-        speechUrl = speech_url;
-      } 
-      else {
-        return NextResponse.json(
-          { error: 'Invalid URL format. Please provide a valid YouTube link or Cloudflare Stream URL/UID.' },
-          { status: 400 }
-        );
-      }
+      return NextResponse.json(
+        { error: 'Invalid URL format. Please provide a valid YouTube link, Cloudflare Stream URL/UID, or audio file URL.' },
+        { status: 400 }
+      );
     }
 
     // Check for duplicate URL for this user

@@ -367,7 +367,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           return;
         }
       } else if (submissionType === 'audio') {
-        // Submit audio file with real progress tracking
+        // Upload audio file directly to Supabase Storage using signed URL
         if (!audioFile) {
           setError('Please select an audio file');
           setLoading(false);
@@ -382,17 +382,79 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           return;
         }
 
-        const formData = new FormData();
-        formData.append('audio_file', audioFile);
+        // Step 1: Get signed upload URL from API
+        setUploadProgress(5);
 
-        response = await uploadWithProgress(
-          '/api/speeches/submit',
-          formData,
-          null,
-          (progress) => setUploadProgress(progress)
-        );
+        let signedUrlResponse;
+        try {
+          signedUrlResponse = await fetch('/api/storage/signed-url', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fileName: audioFile.name,
+              fileSize: audioFile.size,
+              fileType: audioFile.type,
+              bucket: 'speech-audio',
+            }),
+          });
 
-        setUploadProgress(100);
+          const signedUrlData = await signedUrlResponse.json();
+          console.log('[DEBUG] /api/storage/signed-url response:', { status: signedUrlResponse.status, data: signedUrlData });
+
+          if (!signedUrlResponse.ok) {
+            console.error('[DEBUG] Signed URL generation failed:', signedUrlResponse.status, signedUrlData);
+            setError(signedUrlData.error || 'Failed to initialize audio upload');
+            setLoading(false);
+            return;
+          }
+
+          setUploadProgress(10);
+
+          // Step 2: Upload audio directly to Supabase Storage using signed URL
+          const signedUrl = signedUrlData.signed_url;
+          const publicUrl = signedUrlData.public_url;
+
+          const uploadResponse = await uploadWithProgress(
+            signedUrl,
+            null,
+            null,
+            (progress) => {
+              // Scale progress from 10-90% during upload
+              const scaledProgress = 10 + Math.floor((progress / 100) * 80);
+              setUploadProgress(scaledProgress);
+            }
+          );
+
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload audio to Supabase Storage');
+          }
+
+          setUploadProgress(90);
+
+          // Step 3: Submit the public URL to speeches API
+          response = await fetch('/api/speeches/submit', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ speech_url: publicUrl }),
+          });
+
+          setUploadProgress(100);
+        } catch (fetchError: unknown) {
+          const error = fetchError as { message?: string };
+          if (error.message?.includes('Failed to fetch') || error.message?.includes('SSL') || error.message?.includes('ERR_SSL')) {
+            setError('Connection error during upload - this can happen with large files. Please try again or use a smaller file.');
+          } else {
+            setError(error.message || 'Failed to upload audio file');
+          }
+          setLoading(false);
+          return;
+        }
       } else {
         // Submit YouTube link
         if (!youtubeUrl.trim()) {

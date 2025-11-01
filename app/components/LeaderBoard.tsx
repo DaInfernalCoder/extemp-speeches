@@ -369,7 +369,7 @@ const LeaderBoard: React.FC = () => {
                 onClick={() => handleEmailToggle(!emailRemindersEnabled)}
                 disabled={updatingPreferences}
                 className={`relative inline-flex h-7 w-12 items-center rounded-lg transition-all brutal-border ${
-                  emailRemindersEnabled ? 'bg-[var(--primary)]' : 'bg-gray-200'
+                  emailRemindersEnabled ? 'bg-brutal-primary' : 'bg-gray-200'
                 } ${updatingPreferences ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 style={{
                   boxShadow: emailRemindersEnabled ? 'var(--shadow-brutal)' : '2px 2px 0px #000'
@@ -594,7 +594,7 @@ const LeaderBoard: React.FC = () => {
                     <span>All Time: {entry.all_time_speeches}</span>
                   </div>
                   {entry.speech_details && entry.speech_details.length > 0 && (
-                    <div className="mt-2 pt-2 border-t-[2px] border-black">
+                    <div className="mt-2 pt-2 border-t-2 border-black">
                       <span className="text-xs font-bold mb-1 block" style={{ color: '#1a1a1a' }}>Recordings:</span>
                       <div className="flex flex-col items-center gap-2">
                         {entry.speech_details.map((speechDetail, urlIndex) => {
