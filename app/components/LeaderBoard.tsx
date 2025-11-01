@@ -27,6 +27,7 @@ interface SpeechDetails {
   speech_id: string;
   speech_url: string;
   user_id: string;
+  submitted_at: string;
   ballots: Ballot[];
 }
 
@@ -503,7 +504,9 @@ const LeaderBoard: React.FC = () => {
                   <div className="px-6 py-4 border-r-[3px] border-black">
                     <div className="flex flex-col items-center gap-2">
                       {entry.speech_details && entry.speech_details.length > 0 ? (
-                        entry.speech_details.map((speechDetail, urlIndex) => (
+                        entry.speech_details.map((speechDetail, urlIndex) => {
+                          const formattedDate = new Date(speechDetail.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          return (
                           <div key={urlIndex} className="flex items-center gap-2">
                             <a
                               href={speechDetail.speech_url}
@@ -512,7 +515,7 @@ const LeaderBoard: React.FC = () => {
                               className="text-sm leading-normal inline-block align-baseline font-bold hover:underline transition-colors"
                               style={{ color: 'var(--primary)' }}
                             >
-                              Recording {urlIndex + 1}
+                              Recording {urlIndex + 1} - {formattedDate}
                             </a>
                             {user && user.id === speechDetail.user_id && (
                               <button
@@ -526,7 +529,8 @@ const LeaderBoard: React.FC = () => {
                               </button>
                             )}
                           </div>
-                        ))
+                          );
+                        })
                       ) : (
                         <span className="text-sm text-gray-400">—</span>
                       )}
@@ -598,6 +602,7 @@ const LeaderBoard: React.FC = () => {
                       <div className="flex flex-col items-center gap-2">
                         {entry.speech_details.map((speechDetail, urlIndex) => {
                           const ballotCount = speechDetail.ballots?.length || 0;
+                          const formattedDate = new Date(speechDetail.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
                           return (
                             <div key={urlIndex} className="flex flex-col items-center gap-1">
@@ -609,7 +614,7 @@ const LeaderBoard: React.FC = () => {
                                   className="text-xs font-bold hover:underline transition-colors"
                                   style={{ color: 'var(--primary)' }}
                                 >
-                                  Recording {urlIndex + 1}
+                                  Recording {urlIndex + 1} - {formattedDate}
                                 </a>
                                 {user && user.id === speechDetail.user_id && (
                                   <button

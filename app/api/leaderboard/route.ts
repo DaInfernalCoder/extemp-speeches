@@ -32,6 +32,7 @@ export async function GET() {
           user_id,
           speech_url,
           week_start_date,
+          submitted_at,
           ballots(
             id,
             gestures,
@@ -100,6 +101,7 @@ export async function GET() {
         id: string;
         speech_url: string;
         week_start_date: string;
+        submitted_at: string;
         ballots?: Array<{
           id: string;
           reviewer_id: string;
@@ -158,6 +160,7 @@ export async function GET() {
           speech_id: speech.id,
           speech_url: speech.speech_url,
           user_id: speech.user_id,
+          submitted_at: speech.submitted_at,
           ballots: ballotsWithReviewers,
         });
       });
