@@ -60,12 +60,14 @@ export async function POST(request: Request) {
 
     // Initialize YouTube resumable upload session
     // YouTube API v3 resumable upload endpoint
-    const youtubeInitUrl = 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable';
+    // The 'part' parameter specifies which parts of the video resource we're providing
+    const youtubeInitUrl = 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status';
 
     // Extract video title from filename (remove extension)
     const videoTitle = fileName.replace(/\.[^/.]+$/, '') || 'Untitled Speech';
 
     // Prepare video metadata
+    // Must match the 'part' parameter - we're providing snippet and status
     const videoMetadata = {
       snippet: {
         title: videoTitle,

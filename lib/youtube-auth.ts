@@ -11,14 +11,7 @@ export async function hasYouTubeUploadScope(): Promise<boolean> {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
   
-  console.log('[YouTube Auth] Checking session for provider_token:', {
-    hasSession: !!session,
-    hasProviderToken: !!session?.provider_token,
-    providerTokenPreview: session?.provider_token ? `${session.provider_token.substring(0, 20)}...` : 'none'
-  });
-  
   if (!session?.provider_token) {
-    console.log('[YouTube Auth] No provider_token found in session');
     return false;
   }
 
@@ -29,23 +22,14 @@ export async function hasYouTubeUploadScope(): Promise<boolean> {
 
     if (!response.ok) {
       // Token is invalid or expired
-      console.log('[YouTube Auth] Token validation failed:', response.status);
       return false;
     }
 
     const tokenInfo = await response.json();
     const scopes = tokenInfo.scope || '';
     
-    console.log('[YouTube Auth] Token info retrieved, scopes:', scopes);
-    
     // Check if the token has the YouTube upload scope
     const hasScope = typeof scopes === 'string' && scopes.includes(YOUTUBE_UPLOAD_SCOPE);
-    
-    if (!hasScope) {
-      console.log('[YouTube Auth] Token does not have youtube.upload scope. Available scopes:', scopes);
-    } else {
-      console.log('[YouTube Auth] Token has youtube.upload scope - verified');
-    }
     
     return hasScope;
   } catch (error) {
