@@ -417,9 +417,13 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           const signedUrl = signedUrlData.signed_url;
           const publicUrl = signedUrlData.public_url;
 
+          // Create FormData with the audio file
+          const formData = new FormData();
+          formData.append('file', audioFile);
+
           const uploadResponse = await uploadWithProgress(
             signedUrl,
-            null,
+            formData,
             null,
             (progress) => {
               // Scale progress from 10-90% during upload
