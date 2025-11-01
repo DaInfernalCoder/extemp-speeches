@@ -420,6 +420,14 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           const signedUrl = signedUrlData.signed_url;
           const publicUrl = signedUrlData.public_url;
 
+          // Get user's access token for Authorization header
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            setError('Authentication session not found');
+            setLoading(false);
+            return;
+          }
+
           // Create FormData with the audio file
           const formData = new FormData();
           formData.append('file', audioFile);
@@ -433,8 +441,10 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
               const scaledProgress = 10 + Math.floor((progress / 100) * 80);
               setUploadProgress(scaledProgress);
             },
-            undefined,
-            false // Don't send credentials to Supabase Storage (signed URL already has auth token)
+            {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            false // Don't send credentials to Supabase Storage
           );
 
           if (!uploadResponse.ok) {
