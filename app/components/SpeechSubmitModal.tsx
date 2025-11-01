@@ -97,144 +97,87 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     });
   };
 
-  // Helper function for YouTube resumable chunk uploads (PUT method with raw blob)
+  // Helper function for YouTube resumable chunk uploads via server proxy
   const uploadYouTubeChunk = async (
-    url: string,
+    resumableUploadUrl: string,
     chunk: Blob,
     contentRange: string,
     contentType: string,
-    onProgress: (progress: number) => void,
-    oauthToken?: string | null
+    onProgress: (progress: number) => void
   ): Promise<Response> => {
-    // Log upload URL (truncated for security)
-    const urlParts = url.split('?');
+    // Log upload details
+    const urlParts = resumableUploadUrl.split('?');
     const baseUrl = urlParts[0];
     const queryParams = urlParts[1] ? urlParts[1].substring(0, 50) + '...' : '';
-    console.log('[DEBUG] YouTube chunk upload:', {
+    console.log('[DEBUG] YouTube chunk upload via proxy:', {
       url: `${baseUrl}?${queryParams}`,
       contentRange,
       contentType,
       chunkSize: chunk.size,
-      hasAuthHeader: !!oauthToken,
-      authTokenFormat: oauthToken ? `${oauthToken.substring(0, 10)}...` : 'missing',
     });
 
-    // Log all headers being sent
-    const headersLog: Record<string, string> = {
-      'Content-Type': contentType,
-      'Content-Range': contentRange,
-    };
-    if (oauthToken) {
-      headersLog['Authorization'] = `Bearer ${oauthToken.substring(0, 10)}...`;
-    } else {
-      headersLog['Authorization'] = 'MISSING';
-    }
-    console.log('[DEBUG] YouTube chunk upload headers:', headersLog);
-
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-
-      // Track upload progress
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100);
-          onProgress(percent);
-        }
+    // Convert blob to base64 for transmission through our API
+    const base64Promise = new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result);
       };
+      reader.onerror = reject;
+      reader.readAsDataURL(chunk);
+    });
 
-      xhr.onload = () => {
-        // Log response details
-        const responseHeaders: Record<string, string | null> = {};
-        const headerNames = ['content-type', 'range', 'authorization'];
-        headerNames.forEach(name => {
-          responseHeaders[name] = xhr.getResponseHeader(name);
-        });
-        console.log('[DEBUG] YouTube chunk upload response:', {
-          status: xhr.status,
-          statusText: xhr.statusText,
-          headers: responseHeaders,
-        });
+    try {
+      const chunkDataBase64 = await base64Promise;
 
-        // 200 = complete, 308 = resume incomplete (need to continue)
-        if (xhr.status === 200 || xhr.status === 308) {
-          // Create Response with headers
-          const responseHeadersObj = new Headers();
-          responseHeadersObj.set('Content-Type', xhr.getResponseHeader('Content-Type') || 'application/json');
-          const rangeHeader = xhr.getResponseHeader('Range');
-          if (rangeHeader) {
-            responseHeadersObj.set('Range', rangeHeader);
-          }
+      // Upload via our proxy endpoint
+      const response = await fetch('/api/youtube/upload-chunk', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chunkData: chunkDataBase64,
+          resumableUploadUrl,
+          contentRange,
+          contentType,
+        }),
+      });
 
-          const response = new Response(xhr.responseText || xhr.response, {
-            status: xhr.status,
-            statusText: xhr.statusText,
-            headers: responseHeadersObj,
-          });
-          resolve(response);
-        } else {
-          // Handle specific API rejection errors
-          let errorMessage = '';
-          try {
-            const errorData = JSON.parse(xhr.responseText || '{}');
-            errorMessage = errorData.error?.message || '';
-            console.log('[DEBUG] YouTube chunk upload error response:', {
-              status: xhr.status,
-              errorData,
-            });
-          } catch {
-            // If response is not JSON, use status text
-            console.log('[DEBUG] YouTube chunk upload non-JSON error:', {
-              status: xhr.status,
-              statusText: xhr.statusText,
-              responseText: xhr.responseText?.substring(0, 200),
-            });
-          }
+      // Report progress (we simulate 100% since chunk is already uploaded to our server)
+      onProgress(100);
 
-          // Distinguish between auth errors and other errors
-          if (xhr.status === 401) {
-            console.error('[DEBUG] YouTube upload auth error (401): Token may be expired or invalid');
-            reject(new Error('YouTube authentication failed. Please sign in again and grant YouTube upload permissions.'));
-          } else if (xhr.status === 403) {
-            reject(new Error(errorMessage || 'YouTube rejected the upload. Your account may have exceeded its upload quota.'));
-          } else if (xhr.status === 429) {
-            reject(new Error('YouTube API rate limit exceeded. Please wait a few minutes and try again.'));
-          } else if (xhr.status === 503) {
-            reject(new Error('YouTube service is temporarily unavailable. Please try again in a few minutes.'));
-          } else {
-            reject(new Error(errorMessage || `YouTube upload failed (status ${xhr.status}). Please try again or use Cloudflare instead.`));
-          }
-        }
-      };
+      const responseData = await response.json();
 
-      xhr.onerror = () => {
-        console.error('[DEBUG] YouTube chunk upload network error - this may be a CORS error');
-        reject(new Error('Upload failed - network error (may be CORS related)'));
-      };
-      xhr.onabort = () => {
-        console.error('[DEBUG] YouTube chunk upload aborted');
-        reject(new Error('Upload aborted'));
-      };
-
-      // Use PUT for YouTube resumable uploads
-      xhr.open('PUT', url);
-
-      // Set required headers
-      xhr.setRequestHeader('Content-Type', contentType);
-      xhr.setRequestHeader('Content-Range', contentRange);
-
-      // Add Authorization header if OAuth token is provided
-      if (oauthToken) {
-        xhr.setRequestHeader('Authorization', `Bearer ${oauthToken}`);
-        console.log('[DEBUG] Added Authorization header to YouTube chunk upload');
-      } else {
-        console.warn('[DEBUG] WARNING: No Authorization header added to YouTube chunk upload - this may cause CORS/auth errors');
+      if (!response.ok) {
+        throw new Error(responseData.error || `Upload failed (status ${response.status})`);
       }
 
-      // Don't send credentials to YouTube
-      xhr.withCredentials = false;
+      // Create Response with Range header if present (from response body)
+      const responseHeaders = new Headers();
+      if (responseData.rangeHeader) {
+        responseHeaders.set('Range', responseData.rangeHeader);
+      }
 
-      xhr.send(chunk);
-    });
+      // If upload is complete, include video data
+      if (responseData.status === 200 && responseData.videoData) {
+        return new Response(JSON.stringify(responseData.videoData), {
+          status: 200,
+          headers: responseHeaders,
+        });
+      }
+
+      // Return response with status
+      return new Response('', {
+        status: responseData.status || 308,
+        headers: responseHeaders,
+      });
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      console.error('[DEBUG] YouTube chunk upload proxy error:', error);
+      throw new Error(err.message || 'Failed to upload chunk');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -321,18 +264,12 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
 
             const resumableUploadUrl = initData.upload_url;
             setUploadProgress(10);
-
-            // Get OAuth token from session for chunk uploads
-            const { data: { session } } = await supabase.auth.getSession();
-            const oauthToken = session?.provider_token;
             
             console.log('[DEBUG] Before YouTube chunk upload loop:', {
               resumableUploadUrl: resumableUploadUrl.substring(0, 100) + '...',
               fileSize: videoFile.size,
               fileName: videoFile.name,
               fileType: videoFile.type,
-              hasOAuthToken: !!oauthToken,
-              oauthTokenFormat: oauthToken ? `${oauthToken.substring(0, 10)}...` : 'missing',
             });
 
             // Step 2: Upload video to YouTube using resumable protocol
@@ -365,8 +302,7 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                     const totalProgress = bytesUploaded + (chunkProgress / 100) * chunk.size;
                     const scaledProgress = 10 + Math.floor((totalProgress / videoFile.size) * 80);
                     setUploadProgress(Math.min(90, scaledProgress));
-                  },
-                  oauthToken
+                  }
                 );
 
                 // Check if we need to resume (308 Resume Incomplete)
@@ -409,7 +345,6 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                   totalBytes: videoFile.size,
                   isCorsError,
                   isAuthError,
-                  hasOAuthToken: !!oauthToken,
                 });
                 
                 // Check if it's an API rejection (403, 429, 503) - don't try to resume
@@ -420,19 +355,17 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
                 
                 // Only try to resume if it's not an API rejection and we have progress
                 if (!isApiRejection && bytesUploaded > 0) {
-                  // Check upload status before resuming
+                  // Check upload status before resuming via proxy
                   try {
-                    const statusHeaders: Record<string, string> = {
-                      'Content-Range': `bytes */${videoFile.size}`,
-                    };
-                    if (oauthToken) {
-                      statusHeaders['Authorization'] = `Bearer ${oauthToken}`;
-                    }
-                    
-                    const statusResponse = await fetch(resumableUploadUrl, {
-                      method: 'PUT',
-                      headers: statusHeaders,
-                    });
+                    // Send empty chunk with Content-Range: bytes */{total} to check status
+                    const emptyChunk = new Blob([]);
+                    const statusResponse = await uploadYouTubeChunk(
+                      resumableUploadUrl,
+                      emptyChunk,
+                      `bytes */${videoFile.size}`,
+                      videoFile.type,
+                      () => {}
+                    );
 
                     if (statusResponse.status === 308) {
                       const rangeHeader = statusResponse.headers.get('Range');
