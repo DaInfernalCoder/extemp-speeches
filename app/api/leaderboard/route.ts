@@ -81,7 +81,7 @@ export async function GET() {
         id: string;
         speech_url: string;
         week_start_date: string;
-        users?: { name?: string; avatar_url?: string };
+        users?: Array<{ name?: string; avatar_url?: string }>;
         ballots?: Array<{
           id: string;
           reviewer_id: string;
@@ -96,10 +96,11 @@ export async function GET() {
         }>;
       }) => {
         const userId = speech.user_id;
+        const user = speech.users?.[0];
         if (!userStats.has(userId)) {
           userStats.set(userId, {
-            name: speech.users?.name || 'Anonymous',
-            avatar_url: speech.users?.avatar_url,
+            name: user?.name || 'Anonymous',
+            avatar_url: user?.avatar_url,
             all_time_speeches: 0,
             weekly_speeches: 0,
             speech_urls: [],

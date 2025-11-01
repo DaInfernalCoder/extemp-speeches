@@ -45,7 +45,7 @@ export async function GET() {
       speech_url: string;
       submitted_at: string;
       user_id: string;
-      users?: { name?: string; avatar_url?: string };
+      users?: Array<{ name?: string; avatar_url?: string }>;
     }
     
     const groupedByUser = new Map<string, Speech[]>();
@@ -88,7 +88,8 @@ export async function GET() {
       // Create titles with counters
       byDate.forEach((dateSpeeches, dateKey) => {
         dateSpeeches.forEach((speech, index) => {
-          const userName = speech.users?.name || 'Anonymous';
+          const user = speech.users?.[0];
+          const userName = user?.name || 'Anonymous';
           const counter = dateSpeeches.length > 1 ? ` -${index + 1}` : '';
           const title = `${userName} - ${dateKey}${counter}`;
           
