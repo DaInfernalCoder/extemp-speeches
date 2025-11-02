@@ -15,63 +15,76 @@ export default function NeobrutalistFire({
   const sparkSpeed = 2.5 - (intensity * 0.2); // 2.5s to 0.5s
   
   return (
-    <div className={`relative inline-block ${className}`} style={{ width: size, height: size }}>
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 64 64"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="neobrutalist-fire"
-        style={{
-          animationDuration: `${animationSpeed}s`,
-          '--flame-main-duration': `${animationSpeed * 0.75}s`,
-          '--flame-inner-duration': `${animationSpeed * 0.6}s`,
-          '--spark-duration': `${sparkSpeed}s`,
-        } as React.CSSProperties}
-      >
-        {/* Main orange flame - clean teardrop shape */}
-        <path
-          d="M32 56 C24 56, 18 52, 18 46 C18 42, 20 36, 22 30 C24 24, 26 18, 28 14 C29 12, 30 10, 32 10 C34 10, 35 12, 36 14 C38 18, 40 24, 42 30 C44 36, 46 42, 46 46 C46 52, 40 56, 32 56 Z"
-          fill="#FF6B35"
-          stroke="#000000"
-          strokeWidth="3"
-          className="flame-main"
+    <div 
+      className={`relative inline-block ${className}`} 
+      style={{ 
+        width: size, 
+        height: size,
+        '--fire-duration': `${animationSpeed}s`,
+        '--spark-duration': `${sparkSpeed}s`,
+      } as React.CSSProperties}
+    >
+      <div className="neobrutalist-fire-wrapper" style={{ width: '100%', height: '100%', position: 'relative' }}>
+        {/* Back layer - largest orange */}
+        <div 
+          className="flame-layer flame-back"
+          style={{
+            position: 'absolute',
+            bottom: '4%',
+            left: '0%',
+            width: '100%',
+            height: '100%',
+          }}
         />
         
-        {/* Inner yellow flame - smaller teardrop */}
-        <path
-          d="M32 52 C26 52, 22 49, 22 44 C22 41, 23 37, 24 33 C25 29, 26 25, 27 21 C28 19, 29 17, 32 17 C35 17, 36 19, 37 21 C38 25, 39 29, 40 33 C41 37, 42 41, 42 44 C42 49, 38 52, 32 52 Z"
-          fill="#FFD233"
-          stroke="#000000"
-          strokeWidth="2.5"
-          className="flame-inner"
+        {/* Medium layer - medium orange */}
+        <div 
+          className="flame-layer flame-medium"
+          style={{
+            position: 'absolute',
+            bottom: '5%',
+            left: '10%',
+            width: '80%',
+            height: '80%',
+          }}
+        />
+        
+        {/* Front layer - yellow */}
+        <div 
+          className="flame-layer flame-front"
+          style={{
+            position: 'absolute',
+            bottom: '10%',
+            left: '20%',
+            width: '60%',
+            height: '60%',
+          }}
         />
         
         {/* Floating rounded square spark */}
-        <rect
-          x="20"
-          y="12"
-          width="8"
-          height="8"
-          rx="2"
-          fill="#FFD233"
-          stroke="#000000"
-          strokeWidth="2"
+        <div 
           className="spark-square"
+          style={{
+            position: 'absolute',
+            top: '15%',
+            left: '20%',
+            width: '12%',
+            height: '12%',
+          }}
         />
         
         {/* Floating circle spark */}
-        <circle
-          cx="44"
-          cy="14"
-          r="4"
-          fill="#FFD233"
-          stroke="#000000"
-          strokeWidth="2"
+        <div 
           className="spark-circle"
+          style={{
+            position: 'absolute',
+            top: '12%',
+            right: '25%',
+            width: '8%',
+            height: '8%',
+          }}
         />
-      </svg>
+      </div>
     </div>
   );
 }
