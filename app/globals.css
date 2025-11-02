@@ -71,6 +71,96 @@ body {
   }
 }
 
+/* Neobrutalist Fire Animation */
+.neobrutalist-fire {
+  animation: fireFlicker 2s ease-in-out infinite;
+}
+
+.flame-main {
+  animation: flameFlicker 1.5s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+.flame-inner {
+  animation: flameInnerFlicker 1.2s ease-in-out infinite;
+  transform-origin: 50% 75%;
+}
+
+.spark-square {
+  animation: sparkFloat 2.5s ease-in-out infinite;
+  animation-delay: 0s;
+}
+
+.spark-circle {
+  animation: sparkFloat 2.8s ease-in-out infinite;
+  animation-delay: 0.3s;
+}
+
+@keyframes flameFlicker {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1) translateY(0);
+    filter: brightness(1);
+  }
+  15% {
+    transform: scaleY(1.08) scaleX(0.95) translateY(-1px);
+    filter: brightness(1.15);
+  }
+  30% {
+    transform: scaleY(0.98) scaleX(1.05) translateY(0);
+    filter: brightness(1.05);
+  }
+  45% {
+    transform: scaleY(1.05) scaleX(0.98) translateY(-0.5px);
+    filter: brightness(1.12);
+  }
+  60% {
+    transform: scaleY(1) scaleX(1.02) translateY(0);
+    filter: brightness(1.08);
+  }
+  75% {
+    transform: scaleY(1.06) scaleX(0.96) translateY(-0.8px);
+    filter: brightness(1.13);
+  }
+}
+
+@keyframes flameInnerFlicker {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1) translateY(0);
+    opacity: 1;
+  }
+  20% {
+    transform: scaleY(1.1) scaleX(0.92) translateY(-0.5px);
+    opacity: 0.95;
+  }
+  40% {
+    transform: scaleY(0.95) scaleX(1.08) translateY(0);
+    opacity: 1;
+  }
+  60% {
+    transform: scaleY(1.07) scaleX(0.94) translateY(-0.3px);
+    opacity: 0.97;
+  }
+  80% {
+    transform: scaleY(1) scaleX(1.03) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes sparkFloat {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-12px) scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-24px) scale(0.7);
+    opacity: 0;
+  }
+}
+
 /* Neobrutalist range sliders */
 .mobile-slider {
   -webkit-appearance: none;

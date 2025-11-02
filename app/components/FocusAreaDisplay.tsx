@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import NeobrutalistFire from './NeobrutalistFire';
 
 interface FocusAreaData {
   focus_area: string | null;
@@ -74,9 +75,7 @@ export default function FocusAreaDisplay() {
         <div className="flex items-center justify-center gap-3 mb-4">
           {/* Fire Animation */}
           <div className="relative">
-            <div className="fire-animation">
-              <span className="text-2xl sm:text-3xl">🔥</span>
-            </div>
+            <NeobrutalistFire size={32} />
           </div>
           
           {/* Growth Percentage Badge */}
