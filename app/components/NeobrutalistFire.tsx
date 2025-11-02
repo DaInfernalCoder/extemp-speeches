@@ -30,9 +30,9 @@ export default function NeobrutalistFire({
           '--spark-duration': `${sparkSpeed}s`,
         } as React.CSSProperties}
       >
-        {/* Main orange flame - teardrop shape */}
+        {/* Main orange flame - clean teardrop shape */}
         <path
-          d="M32 56 Q24 56, 20 52 Q16 48, 16 44 Q16 40, 18 36 Q20 32, 22 28 Q24 24, 26 20 Q28 16, 30 14 Q31 12, 32 12 Q33 12, 34 14 Q36 16, 38 20 Q40 24, 42 28 Q44 32, 46 36 Q48 40, 48 44 Q48 48, 44 52 Q40 56, 32 56 Z"
+          d="M32 56 C24 56, 18 52, 18 46 C18 42, 20 36, 22 30 C24 24, 26 18, 28 14 C29 12, 30 10, 32 10 C34 10, 35 12, 36 14 C38 18, 40 24, 42 30 C44 36, 46 42, 46 46 C46 52, 40 56, 32 56 Z"
           fill="#FF6B35"
           stroke="#000000"
           strokeWidth="3"
@@ -41,7 +41,7 @@ export default function NeobrutalistFire({
         
         {/* Inner yellow flame - smaller teardrop */}
         <path
-          d="M32 52 Q28 52, 25 49 Q22 46, 22 43 Q22 40, 23 37 Q24 34, 25 31 Q26 28, 27 25 Q28 22, 29 20 Q30 18, 32 18 Q34 18, 35 20 Q36 22, 37 25 Q38 28, 39 31 Q40 34, 41 37 Q42 40, 42 43 Q42 46, 39 49 Q36 52, 32 52 Z"
+          d="M32 52 C26 52, 22 49, 22 44 C22 41, 23 37, 24 33 C25 29, 26 25, 27 21 C28 19, 29 17, 32 17 C35 17, 36 19, 37 21 C38 25, 39 29, 40 33 C41 37, 42 41, 42 44 C42 49, 38 52, 32 52 Z"
           fill="#FFD233"
           stroke="#000000"
           strokeWidth="2.5"
