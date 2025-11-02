@@ -71,77 +71,154 @@ body {
   }
 }
 
-/* Neobrutalist Fire Animation - Based on rotated squares technique */
-.neobrutalist-fire-wrapper {
+/* Fire Animation - User's exact code with minimal neobrutalist additions */
+.fire {
   position: relative;
+  height: 100%;
+  width: 100%;
 }
 
-.flame-layer {
-  border: 3px solid #000000;
-  box-shadow: var(--shadow-brutal);
-  border-radius: 0 75% 75% 75%;
-  transform: rotate(45deg);
-  transform-origin: center center;
+.fire .flames {
+  position: absolute;
+  bottom: 40%;
+  left: 50%;
+  width: 60%;
+  height: 60%;
+  transform: translateX(-50%) rotate(45deg);
 }
 
-.flame-back {
-  background: #ff6234;
-  animation: fire var(--fire-duration, 2s) linear infinite alternate;
-  animation-delay: 1s;
-}
-
-.flame-medium {
-  background: #ff7d17;
-  animation: fire var(--fire-duration, 2s) linear infinite alternate;
-  animation-delay: 0.5s;
-}
-
-.flame-front {
-  background: #ffb726;
-  animation: fire var(--fire-duration, 2s) linear infinite alternate;
-}
-
-.spark-square {
-  background: #ffb726;
+.fire .flame {
+  position: absolute;
+  right: 0%;
+  bottom: 0%;
+  width: 0%;
+  height: 0%;
+  background-color: #FFDC01;
   border: 2px solid #000000;
-  border-radius: 2px;
+  border-radius: 4px;
   box-shadow: 2px 2px 0px #000000;
-  animation: sparkFloat var(--spark-duration, 2.5s) ease-in-out infinite;
+}
+
+.fire .flame:nth-child(2n + 1) {
+  animation: flameodd var(--animation-time, 1.5s) ease-in infinite;
+}
+
+.fire .flame:nth-child(2n) {
+  animation: flameeven var(--animation-time, 1.5s) ease-in infinite;
+}
+
+.fire .flame:nth-child(1) {
   animation-delay: 0s;
 }
 
-.spark-circle {
-  background: #ffb726;
+.fire .flame:nth-child(2) {
+  animation-delay: calc(var(--animation-time, 1.5s) / 4);
+}
+
+.fire .flame:nth-child(3) {
+  animation-delay: calc(var(--animation-time, 1.5s) / 4 * 2);
+}
+
+.fire .flame:nth-child(4) {
+  animation-delay: calc(var(--animation-time, 1.5s) / 4 * 3);
+}
+
+.fire .logs {
+  position: absolute;
+  bottom: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  height: 15%;
+}
+
+.fire .logs::before,
+.fire .logs::after {
+  position: absolute;
+  content: '';
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(20deg);
+  height: 100%;
+  width: 100%;
+  border-radius: 4px;
+  background-color: #70392F;
   border: 2px solid #000000;
-  border-radius: 50%;
   box-shadow: 2px 2px 0px #000000;
-  animation: sparkFloat var(--spark-duration, 2.8s) ease-in-out infinite;
-  animation-delay: 0.3s;
 }
 
-@keyframes fire {
+.fire .logs::before {
+  transform: translate(-50%, -50%) rotate(-20deg);
+  background-color: #612E25;
+}
+
+@keyframes flameodd {
+  0%, 100% {
+    width: 0%;
+    height: 0%;
+  }
+  25% {
+    width: 100%;
+    height: 100%;
+  }
   0% {
-    opacity: 1;
-    transform: scale(1) rotate(45deg);
+    background-color: #FFDC01;
+    z-index: 1000000;
+  }
+  40% {
+    background-color: #FDAC01;
+    z-index: 1000000;
   }
   100% {
-    opacity: 0.8;
-    transform: scale(0.9) rotate(45deg);
+    background-color: #F73B01;
+    z-index: -10;
+  }
+  0% {
+    right: 0%;
+    bottom: 0%;
+  }
+  25% {
+    right: 1%;
+    bottom: 2%;
+  }
+  100% {
+    right: 150%;
+    bottom: 170%;
   }
 }
 
-@keyframes sparkFloat {
-  0% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
+@keyframes flameeven {
+  0%, 100% {
+    width: 0%;
+    height: 0%;
   }
-  50% {
-    transform: translateY(-12px) scale(0.9);
-    opacity: 0.8;
+  25% {
+    width: 100%;
+    height: 100%;
+  }
+  0% {
+    background-color: #FFDC01;
+    z-index: 1000000;
+  }
+  40% {
+    background-color: #FDAC01;
+    z-index: 1000000;
   }
   100% {
-    transform: translateY(-24px) scale(0.7);
-    opacity: 0;
+    background-color: #F73B01;
+    z-index: -10;
+  }
+  0% {
+    right: 0%;
+    bottom: 0%;
+  }
+  25% {
+    right: 2%;
+    bottom: 1%;
+  }
+  100% {
+    right: 170%;
+    bottom: 150%;
   }
 }
 
