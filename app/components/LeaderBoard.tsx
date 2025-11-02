@@ -24,6 +24,7 @@ interface Ballot {
   focus_area_rating?: number | null;
   created_at: string;
   reviewer_name: string;
+  reviewer_id?: string;
 }
 
 interface SpeechDetails {
@@ -532,6 +533,7 @@ const LeaderBoard: React.FC = () => {
                       {entry.speech_details && entry.speech_details.length > 0 ? (
                         entry.speech_details.map((speechDetail, urlIndex) => {
                           const formattedDate = new Date(speechDetail.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          const hasUserBallot = user && speechDetail.ballots?.some(ballot => ballot.reviewer_id === user.id);
                           return (
                           <div key={urlIndex} className="flex items-center gap-2">
                             <a
@@ -554,7 +556,7 @@ const LeaderBoard: React.FC = () => {
                                 <span className="text-white text-xs font-bold leading-none">×</span>
                               </button>
                             )}
-                            {user && user.id !== speechDetail.user_id && (
+                            {user && user.id !== speechDetail.user_id && !hasUserBallot && (
                               <button
                                 onClick={() => handleQuickBallot(speechDetail.speech_id)}
                                 className="flex items-center justify-center w-5 h-5 rounded brutal-border transition-colors"
@@ -649,6 +651,7 @@ const LeaderBoard: React.FC = () => {
                         {entry.speech_details.map((speechDetail, urlIndex) => {
                           const ballotCount = speechDetail.ballots?.length || 0;
                           const formattedDate = new Date(speechDetail.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          const hasUserBallot = user && speechDetail.ballots?.some(ballot => ballot.reviewer_id === user.id);
 
                           return (
                             <div key={urlIndex} className="flex flex-col items-center gap-1">
@@ -673,7 +676,7 @@ const LeaderBoard: React.FC = () => {
                                     <span className="text-white text-xs font-bold leading-none">×</span>
                                   </button>
                                 )}
-                                {user && user.id !== speechDetail.user_id && (
+                                {user && user.id !== speechDetail.user_id && !hasUserBallot && (
                                   <button
                                     onClick={() => handleQuickBallot(speechDetail.speech_id)}
                                     className="flex items-center justify-center w-4 h-4 rounded brutal-border transition-colors"
