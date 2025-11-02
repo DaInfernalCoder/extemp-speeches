@@ -117,6 +117,7 @@ const LeaderBoard: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [emailRemindersEnabled, setEmailRemindersEnabled] = useState(true);
   const [updatingPreferences, setUpdatingPreferences] = useState(false);
+  const [preselectedSpeechId, setPreselectedSpeechId] = useState<string | undefined>(undefined);
   const supabase = useMemo(() => createClient(), []);
 
   const fetchLeaderboard = useCallback(async () => {
@@ -248,6 +249,16 @@ const LeaderBoard: React.FC = () => {
       alert('Please log in to submit a ballot');
       return;
     }
+    setPreselectedSpeechId(undefined);
+    setIsBallotModalOpen(true);
+  };
+
+  const handleQuickBallot = (speechId: string) => {
+    if (!user) {
+      alert('Please log in to submit a ballot');
+      return;
+    }
+    setPreselectedSpeechId(speechId);
     setIsBallotModalOpen(true);
   };
 
@@ -309,8 +320,12 @@ const LeaderBoard: React.FC = () => {
       />
       <BallotSubmitModal
         isOpen={isBallotModalOpen}
-        onClose={() => setIsBallotModalOpen(false)}
+        onClose={() => {
+          setIsBallotModalOpen(false);
+          setPreselectedSpeechId(undefined);
+        }}
         onSuccess={handleModalSuccess}
+        preselectedSpeechId={preselectedSpeechId}
       />
       <FeatureRequestModal
         isOpen={isFeatureRequestModalOpen}
@@ -539,6 +554,26 @@ const LeaderBoard: React.FC = () => {
                                 <span className="text-white text-xs font-bold leading-none">×</span>
                               </button>
                             )}
+                            {user && user.id !== speechDetail.user_id && (
+                              <button
+                                onClick={() => handleQuickBallot(speechDetail.speech_id)}
+                                className="flex items-center justify-center w-5 h-5 rounded brutal-border transition-colors"
+                                style={{ 
+                                  backgroundColor: 'var(--primary)',
+                                  boxShadow: '2px 2px 0px #000'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#0052CC';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'var(--primary)';
+                                }}
+                                title="Add ballot"
+                                aria-label="Add ballot"
+                              >
+                                <span className="text-white text-xs font-bold leading-none">+</span>
+                              </button>
+                            )}
                           </div>
                           );
                         })
@@ -636,6 +671,26 @@ const LeaderBoard: React.FC = () => {
                                     aria-label="Delete recording"
                                   >
                                     <span className="text-white text-xs font-bold leading-none">×</span>
+                                  </button>
+                                )}
+                                {user && user.id !== speechDetail.user_id && (
+                                  <button
+                                    onClick={() => handleQuickBallot(speechDetail.speech_id)}
+                                    className="flex items-center justify-center w-4 h-4 rounded brutal-border transition-colors"
+                                    style={{ 
+                                      backgroundColor: 'var(--primary)',
+                                      boxShadow: '1px 1px 0px #000'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#0052CC';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'var(--primary)';
+                                    }}
+                                    title="Add ballot"
+                                    aria-label="Add ballot"
+                                  >
+                                    <span className="text-white text-xs font-bold leading-none">+</span>
                                   </button>
                                 )}
                                 {ballotCount > 0 && (

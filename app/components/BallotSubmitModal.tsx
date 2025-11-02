@@ -7,6 +7,7 @@ interface BallotSubmitModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  preselectedSpeechId?: string;
 }
 
 interface SpeechOption {
@@ -20,7 +21,7 @@ interface SpeechOption {
   focus_area: string | null;
 }
 
-export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: BallotSubmitModalProps) {
+export default function BallotSubmitModal({ isOpen, onClose, onSuccess, preselectedSpeechId }: BallotSubmitModalProps) {
   const [speeches, setSpeeches] = useState<SpeechOption[]>([]);
   const [selectedSpeechId, setSelectedSpeechId] = useState('');
   const [gestures, setGestures] = useState(5);
@@ -42,6 +43,16 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess }: Ballot
       fetchSpeeches();
     }
   }, [isOpen]);
+
+  // Set preselected speech ID when speeches are loaded
+  useEffect(() => {
+    if (preselectedSpeechId && speeches.length > 0) {
+      const speechExists = speeches.some(s => s.id === preselectedSpeechId);
+      if (speechExists) {
+        setSelectedSpeechId(preselectedSpeechId);
+      }
+    }
+  }, [preselectedSpeechId, speeches]);
 
   const fetchSpeeches = async () => {
     setLoadingSpeeches(true);
