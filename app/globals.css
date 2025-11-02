@@ -77,22 +77,22 @@ body {
 }
 
 .flame-main {
-  animation: flameFlicker 1.5s ease-in-out infinite;
+  animation: flameFlicker var(--flame-main-duration, 1.5s) ease-in-out infinite;
   transform-origin: 50% 80%;
 }
 
 .flame-inner {
-  animation: flameInnerFlicker 1.2s ease-in-out infinite;
+  animation: flameInnerFlicker var(--flame-inner-duration, 1.2s) ease-in-out infinite;
   transform-origin: 50% 75%;
 }
 
 .spark-square {
-  animation: sparkFloat 2.5s ease-in-out infinite;
+  animation: sparkFloat var(--spark-duration, 2.5s) ease-in-out infinite;
   animation-delay: 0s;
 }
 
 .spark-circle {
-  animation: sparkFloat 2.8s ease-in-out infinite;
+  animation: sparkFloat var(--spark-duration, 2.8s) ease-in-out infinite;
   animation-delay: 0.3s;
 }
 

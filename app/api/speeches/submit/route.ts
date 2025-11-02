@@ -12,6 +12,45 @@ function getWeekStartDate(date: Date): string {
   return d.toISOString().split('T')[0];
 }
 
+// Helper function to get today&apos;s date (UTC, date only)
+function getTodayDate(): string {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today.toISOString().split('T')[0];
+}
+
+// Helper function to get yesterday&apos;s date (UTC, date only)
+function getYesterdayDate(): string {
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  yesterday.setUTCHours(0, 0, 0, 0);
+  return yesterday.toISOString().split('T')[0];
+}
+
+// Helper function to calculate streak
+function calculateStreak(lastStreakDate: string | null, currentStreak: number): number {
+  const today = getTodayDate();
+  const yesterday = getYesterdayDate();
+
+  // If no last streak date (first speech), start at 1
+  if (!lastStreakDate) {
+    return 1;
+  }
+
+  // If last streak was today, keep current streak (already counted)
+  if (lastStreakDate === today) {
+    return currentStreak;
+  }
+
+  // If last streak was yesterday, increment streak
+  if (lastStreakDate === yesterday) {
+    return currentStreak + 1;
+  }
+
+  // If last streak was 2+ days ago, reset to 1
+  return 1;
+}
+
 // Validate YouTube URL
 function isValidYouTubeUrl(url: string): boolean {
   const patterns = [
@@ -112,6 +151,37 @@ export async function POST(request: Request) {
         { error: 'Failed to submit speech' },
         { status: 500 }
       );
+    }
+
+    // Update streak
+    try {
+      const { data: userStreakData } = await supabase
+        .from('users')
+        .select('current_streak, longest_streak, last_streak_date')
+        .eq('id', user.id)
+        .single();
+
+      const lastStreakDate = userStreakData?.last_streak_date || null;
+      const currentStreak = userStreakData?.current_streak || 0;
+      const longestStreak = userStreakData?.longest_streak || 0;
+
+      const newStreak = calculateStreak(lastStreakDate, currentStreak);
+      const newLongestStreak = Math.max(newStreak, longestStreak);
+      const todayDate = getTodayDate();
+
+      // Update user streak data
+      await supabase
+        .from('users')
+        .update({
+          current_streak: newStreak,
+          longest_streak: newLongestStreak,
+          last_streak_date: todayDate,
+          streak_updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+    } catch (streakError) {
+      console.error('Error updating streak:', streakError);
+      // Don&apos;t fail the request if streak update fails
     }
 
     // Get user name for email notification

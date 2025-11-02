@@ -16,22 +16,35 @@ interface FocusAreaData {
   growth_percentage: number | null;
 }
 
+interface StreakData {
+  current_streak: number;
+  longest_streak: number;
+}
+
 export default function FocusAreaDisplay() {
   const [data, setData] = useState<FocusAreaData | null>(null);
+  const [streakData, setStreakData] = useState<StreakData | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     fetchFocusAreaData();
 
-    // Subscribe to real-time changes for users (focus_area updates) and ballots (focus_area_rating updates)
+    // Fetch streak data
+    fetchStreakData();
+
+    // Subscribe to real-time changes for users (focus_area updates, streak updates) and ballots (focus_area_rating updates)
     const channel = supabase
       .channel('focus-area-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
         fetchFocusAreaData();
+        fetchStreakData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ballots' }, () => {
         fetchFocusAreaData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'speeches' }, () => {
+        fetchStreakData();
       })
       .subscribe();
 
@@ -54,6 +67,18 @@ export default function FocusAreaDisplay() {
     }
   };
 
+  const fetchStreakData = async () => {
+    try {
+      const response = await fetch('/api/users/streak');
+      if (response.ok) {
+        const result = await response.json();
+        setStreakData(result);
+      }
+    } catch (error) {
+      console.error('Error fetching streak data:', error);
+    }
+  };
+
   if (loading) {
     return null; // Don't show anything while loading
   }
@@ -65,35 +90,37 @@ export default function FocusAreaDisplay() {
   const showGrowth = data.total_ratings >= 2 && data.growth_percentage !== null;
   const isPositiveGrowth = data.growth_percentage !== null && data.growth_percentage > 0;
 
+  // Calculate fire intensity based on streak (clamp to 0-10, cap at 10 for visual consistency)
+  const currentStreak = streakData?.current_streak || 0;
+  const fireIntensity = Math.min(currentStreak, 10); // Max intensity at 10 day streak
+
   // Get recent ratings (last 5) for progress bars
   const recentRatings = data.focus_area_ratings.slice(-5);
 
   return (
     <div className="brutal-card p-4 sm:p-6 mb-6 sm:mb-8">
-      {/* Fire Animation & Growth Badge */}
-      {showGrowth && (
-        <div className="flex items-center justify-center gap-3 mb-4">
-          {/* Fire Animation */}
-          <div className="relative">
-            <NeobrutalistFire size={32} />
-          </div>
-          
-          {/* Growth Percentage Badge */}
-          {data.growth_percentage !== null && (
-            <div
-              className="px-3 py-1 rounded-lg brutal-border font-bold text-sm sm:text-base"
-              style={{
-                backgroundColor: isPositiveGrowth ? 'var(--success)' : '#FFD233',
-                color: '#1a1a1a',
-                boxShadow: 'var(--shadow-brutal)'
-              }}
-            >
-              {isPositiveGrowth ? '+' : ''}
-              {data.growth_percentage.toFixed(1)}% Growth
-            </div>
-          )}
+      {/* Fire Animation - Always visible */}
+      <div className="flex items-center justify-center gap-3 mb-4">
+        {/* Fire Animation */}
+        <div className="relative">
+          <NeobrutalistFire size={32} intensity={fireIntensity} />
         </div>
-      )}
+        
+        {/* Growth Percentage Badge - Only show if there's growth */}
+        {showGrowth && data.growth_percentage !== null && (
+          <div
+            className="px-3 py-1 rounded-lg brutal-border font-bold text-sm sm:text-base"
+            style={{
+              backgroundColor: isPositiveGrowth ? 'var(--success)' : '#FFD233',
+              color: '#1a1a1a',
+              boxShadow: 'var(--shadow-brutal)'
+            }}
+          >
+            {isPositiveGrowth ? '+' : ''}
+            {data.growth_percentage.toFixed(1)}% Growth
+          </div>
+        )}
+      </div>
 
       {/* Focus Area Text */}
       <div className="text-center mb-4">

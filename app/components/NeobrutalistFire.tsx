@@ -1,6 +1,19 @@
 'use client';
 
-export default function NeobrutalistFire({ size = 48, className = '' }: { size?: number; className?: string }) {
+export default function NeobrutalistFire({ 
+  size = 48, 
+  className = '',
+  intensity = 0 
+}: { 
+  size?: number; 
+  className?: string;
+  intensity?: number; // 0-10, where 0 is minimal flicker, 10 is intense
+}) {
+  // Calculate animation duration based on intensity (higher intensity = faster/fiercer)
+  // Intensity 0: slow and subtle (3s), Intensity 10: fast and intense (0.5s)
+  const animationSpeed = 3 - (intensity * 0.25); // 3s to 0.5s
+  const sparkSpeed = 2.5 - (intensity * 0.2); // 2.5s to 0.5s
+  
   return (
     <div className={`relative inline-block ${className}`} style={{ width: size, height: size }}>
       <svg
@@ -10,6 +23,12 @@ export default function NeobrutalistFire({ size = 48, className = '' }: { size?:
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="neobrutalist-fire"
+        style={{
+          animationDuration: `${animationSpeed}s`,
+          '--flame-main-duration': `${animationSpeed * 0.75}s`,
+          '--flame-inner-duration': `${animationSpeed * 0.6}s`,
+          '--spark-duration': `${sparkSpeed}s`,
+        } as React.CSSProperties}
       >
         {/* Main orange flame - teardrop shape */}
         <path
