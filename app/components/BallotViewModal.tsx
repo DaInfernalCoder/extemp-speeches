@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { parseLinks } from '@/lib/utils/parse-links';
 
 interface Ballot {
   id: string;
@@ -199,7 +200,7 @@ export default function BallotViewModal({ isOpen, onClose, ballots }: BallotView
                   <div className="mb-6">
                     <label className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>Feedback</label>
                     <div className="w-full px-4 py-3 brutal-border rounded-lg text-sm" style={{ backgroundColor: '#ffffff', color: '#1a1a1a' }}>
-                      {selectedBallot.feedback_text}
+                      {parseLinks(selectedBallot.feedback_text)}
                     </div>
                   </div>
                 )}
