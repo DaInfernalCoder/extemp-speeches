@@ -180,6 +180,72 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
     }
   };
 
+  // Helper function for Supabase Storage uploads (PUT with ArrayBuffer)
+  const uploadToSupabaseStorage = (
+    signedUrl: string,
+    file: File,
+    onProgress: (progress: number) => void
+  ): Promise<Response> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Convert file to ArrayBuffer (required by Supabase Storage)
+        const arrayBuffer = await file.arrayBuffer();
+
+        const xhr = new XMLHttpRequest();
+
+        // Track real upload progress
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            // Simulate a Response object
+            const response = new Response(xhr.responseText || '', {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              headers: new Headers({ 'content-type': xhr.getResponseHeader('content-type') || 'application/json' }),
+            });
+            resolve(response);
+          } else {
+            // Try to parse error response
+            let errorMessage = `Upload failed with status ${xhr.status}`;
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              if (errorData.error || errorData.message) {
+                errorMessage = errorData.error || errorData.message;
+              }
+            } catch {
+              // If response isn't JSON, use default message
+            }
+            reject(new Error(errorMessage));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Upload failed'));
+        xhr.onabort = () => reject(new Error('Upload aborted'));
+
+        // Use PUT method (required by Supabase Storage signed URLs)
+        xhr.open('PUT', signedUrl);
+
+        // Set Content-Type header (important for Supabase Storage)
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+        // Don't send credentials (signed URL contains auth)
+        xhr.withCredentials = false;
+
+        // Send ArrayBuffer as body
+        xhr.send(arrayBuffer);
+      } catch (error: unknown) {
+        const err = error as { message?: string };
+        reject(new Error(err.message || 'Failed to prepare file for upload'));
+      }
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -650,33 +716,15 @@ export default function SpeechSubmitModal({ isOpen, onClose, onSuccess }: Speech
           const signedUrl = signedUrlData.signed_url;
           const publicUrl = signedUrlData.public_url;
 
-          // Get user's access token for Authorization header
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            const errorMessage = 'Authentication session not found';
-            setError(errorMessage);
-            toast.error(errorMessage);
-            setLoading(false);
-            return;
-          }
-
-          // Create FormData with the audio file
-          const formData = new FormData();
-          formData.append('file', audioFile);
-
-          const uploadResponse = await uploadWithProgress(
+          // Upload file using PUT method with ArrayBuffer (required by Supabase Storage)
+          const uploadResponse = await uploadToSupabaseStorage(
             signedUrl,
-            formData,
-            null,
+            audioFile,
             (progress) => {
               // Scale progress from 10-90% during upload
               const scaledProgress = 10 + Math.floor((progress / 100) * 80);
               setUploadProgress(scaledProgress);
-            },
-            {
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            false // Don't send credentials to Supabase Storage
+            }
           );
 
           if (!uploadResponse.ok) {
