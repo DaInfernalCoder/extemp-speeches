@@ -134,6 +134,7 @@ The application uses **Resend** for email delivery:
     2. `VERCEL_URL` (auto-provided by Vercel, prefixed with `https://`)
     3. Fallback to `http://localhost:3000` for local development
   - Set `NEXT_PUBLIC_SITE_URL` in Vercel Project Settings → Environment Variables for Production (and Preview if desired)
+  - Human-readable times in emails are formatted in `EMAIL_TIMEZONE` (default `America/Chicago`)
 
 ### API Routes
 

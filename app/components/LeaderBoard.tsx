@@ -539,14 +539,16 @@ const LeaderBoard: React.FC = () => {
                 <span className="text-sm font-bold" style={{ color: '#1a1a1a' }}>All Time</span>
               </div>
 
-              {/* Speech URLs Header */}
-              <div className="px-6 py-3 flex items-center justify-center gap-2 border-r-[3px] border-black" style={{ backgroundColor: '#FFF8F0' }}>
-                <span className="text-sm font-bold" style={{ color: '#1a1a1a' }}>Recordings</span>
-              </div>
-
-              {/* Ballots Header */}
-              <div className="px-6 py-3 flex items-center justify-center gap-2" style={{ backgroundColor: '#FFF8F0' }}>
-                <span className="text-sm font-bold" style={{ color: '#1a1a1a' }}>Ballots</span>
+              {/* Recordings and Ballots Combined Header */}
+              <div className="px-6 py-3 col-span-2 border-r-[3px] border-black" style={{ backgroundColor: '#FFF8F0' }}>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-center">
+                    <span className="text-sm font-bold" style={{ color: '#1a1a1a' }}>Recordings</span>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <span className="text-sm font-bold" style={{ color: '#1a1a1a' }}>Ballots</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -591,73 +593,63 @@ const LeaderBoard: React.FC = () => {
                     <span className="text-sm font-medium" style={{ color: '#1a1a1a' }}>{entry.all_time_speeches}</span>
                   </div>
 
-                  {/* Speech URLs */}
-                  <div className="px-6 py-4 border-r-[3px] border-black">
-                    <div className="flex flex-col items-center gap-2">
+                  {/* Speech URLs and Ballots Combined */}
+                  <div className="px-6 py-4 border-r-[3px] border-black col-span-2">
+                    <div className="flex flex-col gap-2">
                       {entry.speech_details && entry.speech_details.length > 0 ? (
                         entry.speech_details.map((speechDetail, urlIndex) => {
                           const formattedDate = new Date(speechDetail.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                           const hasUserBallot = user && speechDetail.ballots?.some(ballot => ballot.reviewer_id === user.id);
-                          return (
-                          <div key={urlIndex} className="flex items-center gap-2">
-                            <a
-                              href={speechDetail.speech_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm leading-normal inline-block align-baseline font-bold hover:underline transition-colors"
-                              style={{ color: 'var(--primary)' }}
-                            >
-                              Recording {urlIndex + 1} - {formattedDate}
-                            </a>
-                            {user && user.id === speechDetail.user_id && (
-                              <button
-                                onClick={() => handleDeleteSpeech(speechDetail.speech_id)}
-                                className="flex items-center justify-center w-5 h-5 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
-                                style={{ boxShadow: '2px 2px 0px #000' }}
-                                title="Delete recording"
-                                aria-label="Delete recording"
-                              >
-                                <span className="text-white text-xs font-bold leading-none">×</span>
-                              </button>
-                            )}
-                            {user && user.id !== speechDetail.user_id && !hasUserBallot && (
-                              <button
-                                onClick={() => handleQuickBallot(speechDetail.speech_id)}
-                                className="flex items-center justify-center w-5 h-5 rounded brutal-border transition-colors"
-                                style={{ 
-                                  backgroundColor: 'var(--primary)',
-                                  boxShadow: '2px 2px 0px #000'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#0052CC';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'var(--primary)';
-                                }}
-                                title="Add ballot"
-                                aria-label="Add ballot"
-                              >
-                                <span className="text-white text-xs font-bold leading-none">+</span>
-                              </button>
-                            )}
-                          </div>
-                          );
-                        })
-                      ) : (
-                        <span className="text-sm text-gray-400">—</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Ballots */}
-                  <div className="px-6 py-4">
-                    <div className="flex flex-col items-center gap-2">
-                      {entry.speech_details && entry.speech_details.length > 0 ? (
-                        entry.speech_details.map((speechDetail, speechIndex) => {
                           const ballotCount = speechDetail.ballots?.length || 0;
 
                           return (
-                            <div key={speechIndex} className="flex items-center gap-2">
+                          <div key={urlIndex} className="grid grid-cols-2 gap-4 items-center">
+                            {/* Recording Link and Buttons */}
+                            <div className="flex items-center gap-2 justify-center">
+                              <a
+                                href={speechDetail.speech_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm leading-normal inline-block align-baseline font-bold hover:underline transition-colors"
+                                style={{ color: 'var(--primary)' }}
+                              >
+                                Recording {urlIndex + 1} - {formattedDate}
+                              </a>
+                              {user && user.id === speechDetail.user_id && (
+                                <button
+                                  onClick={() => handleDeleteSpeech(speechDetail.speech_id)}
+                                  className="flex items-center justify-center w-5 h-5 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
+                                  style={{ boxShadow: '2px 2px 0px #000' }}
+                                  title="Delete recording"
+                                  aria-label="Delete recording"
+                                >
+                                  <span className="text-white text-xs font-bold leading-none">×</span>
+                                </button>
+                              )}
+                              {user && user.id !== speechDetail.user_id && !hasUserBallot && (
+                                <button
+                                  onClick={() => handleQuickBallot(speechDetail.speech_id)}
+                                  className="flex items-center justify-center w-5 h-5 rounded brutal-border transition-colors"
+                                  style={{
+                                    backgroundColor: 'var(--primary)',
+                                    boxShadow: '2px 2px 0px #000'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#0052CC';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'var(--primary)';
+                                  }}
+                                  title="Add ballot"
+                                  aria-label="Add ballot"
+                                >
+                                  <span className="text-white text-xs font-bold leading-none">+</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Ballots */}
+                            <div className="flex items-center gap-2 justify-center">
                               {ballotCount > 0 ? (
                                 <>
                                   <button
@@ -690,6 +682,7 @@ const LeaderBoard: React.FC = () => {
                                 <span className="text-gray-400">—</span>
                               )}
                             </div>
+                          </div>
                           );
                         })
                       ) : (

@@ -113,6 +113,13 @@ npm run dev
 - `name` (TEXT)
 - `avatar_url` (TEXT)
 - `created_at` (TIMESTAMPTZ)
+- `email_reminders_enabled` (BOOLEAN, default: true)
+- `last_reminder_sent_at` (TIMESTAMPTZ, nullable)
+- `focus_area` (TEXT, nullable) - Current focus area for skill improvement
+- `current_streak` (INTEGER, default: 0) - Current consecutive days with speech submissions
+- `longest_streak` (INTEGER, default: 0) - Highest streak achieved
+- `last_streak_date` (DATE, nullable) - Date of last speech submission for streak calculation
+- `streak_updated_at` (TIMESTAMPTZ, nullable) - Timestamp of last streak update
 
 ### `speeches` table
 - `id` (UUID, primary key)

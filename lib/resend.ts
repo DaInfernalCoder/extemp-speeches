@@ -6,6 +6,8 @@ if (!process.env.RESEND_API_KEY) {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = 'yourextempcoaches@resend.dev';
+// Default timezone for human-readable times in emails. Can be overridden via env.
+const EMAIL_TIMEZONE = process.env.EMAIL_TIMEZONE || 'America/Chicago';
 
 // Resolve the public site URL for emails. Preference order:
 // 1) NEXT_PUBLIC_SITE_URL (explicit override)
@@ -46,6 +48,14 @@ interface FeatureRequestDetails {
   description: string;
   submitterName: string;
   submittedAt: string;
+}
+
+function formatDateForEmail(isoString: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+    timeZone: EMAIL_TIMEZONE,
+  }).format(new Date(isoString));
 }
 
 export async function sendDailyReminderEmail(
@@ -360,10 +370,7 @@ export async function sendSpeechSubmissionAlert(
           
           <div class="info-box">
             <p><strong>Speaker:</strong> ${submission.speakerName}</p>
-            <p><strong>Submitted:</strong> ${new Date(submission.submittedAt).toLocaleString('en-US', { 
-              dateStyle: 'full', 
-              timeStyle: 'short' 
-            })}</p>
+            <p><strong>Submitted:</strong> ${formatDateForEmail(submission.submittedAt)}</p>
           </div>
 
           <p style="text-align: center;">
@@ -456,10 +463,7 @@ export async function sendFeatureRequestAlert(
           <div class="info-box">
             <h3 style="margin-top: 0; color: #06b6d4;">${details.title}</h3>
             <p style="margin: 0;"><strong>Submitted by:</strong> ${details.submitterName}</p>
-            <p style="margin: 5px 0 0 0;"><strong>Date:</strong> ${new Date(details.submittedAt).toLocaleString('en-US', { 
-              dateStyle: 'full', 
-              timeStyle: 'short' 
-            })}</p>
+            <p style="margin: 5px 0 0 0;"><strong>Date:</strong> ${formatDateForEmail(details.submittedAt)}</p>
           </div>
 
           <div class="description-box">

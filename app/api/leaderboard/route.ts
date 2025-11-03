@@ -1,6 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
+type RpcLeaderboardEntry = {
+  speech_details?: Array<{
+    ballots?: Array<{
+      id?: string;
+    }>;
+  }>;
+};
+
 // Helper function to get the Monday of the current week
 function getWeekStartDate(date: Date): string {
   const d = new Date(date);
@@ -185,9 +193,9 @@ export async function GET() {
     // but handle it just in case - ensure ballots have IDs
     if (data && Array.isArray(data)) {
       // Check if ballots are missing IDs and warn
-      const hasMissingIds = data.some((entry: any) => 
-        entry.speech_details?.some((speechDetail: any) =>
-          speechDetail.ballots?.some((ballot: any) => !ballot.id)
+      const hasMissingIds = (data as RpcLeaderboardEntry[]).some((entry) =>
+        entry.speech_details?.some((speechDetail) =>
+          speechDetail.ballots?.some((ballot) => !ballot.id)
         )
       );
       
