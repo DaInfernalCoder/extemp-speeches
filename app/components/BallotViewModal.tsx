@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { parseLinks } from '@/lib/utils/parse-links';
 
 interface Ballot {
@@ -32,8 +32,15 @@ interface BallotViewModalProps {
 export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallotsMode = false, onMarkAsViewed, currentUserId, onBallotDeleted }: BallotViewModalProps) {
   const [selectedBallotIndex, setSelectedBallotIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [ballotsList, setBallotsList] = useState(ballots);
 
-  const selectedBallot = ballots.length > 0 ? ballots[selectedBallotIndex] : null;
+  // Update ballots list when props change
+  useEffect(() => {
+    setBallotsList(ballots);
+    setSelectedBallotIndex(0);
+  }, [ballots]);
+
+  const selectedBallot = ballotsList.length > 0 ? ballotsList[selectedBallotIndex] : null;
   const canDelete = selectedBallot && currentUserId && selectedBallot.reviewer_id === currentUserId;
 
   const handleClose = () => {
@@ -78,19 +85,20 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
         throw new Error(data.error || 'Failed to delete ballot');
       }
 
+      // Remove the deleted ballot from local state
+      const updatedBallots = ballotsList.filter(b => b.id !== selectedBallot.id);
+      setBallotsList(updatedBallots);
+
+      // Adjust the selected index if needed
+      if (updatedBallots.length === 0) {
+        handleClose();
+      } else if (selectedBallotIndex >= updatedBallots.length) {
+        setSelectedBallotIndex(Math.max(0, updatedBallots.length - 1));
+      }
+
       // Call the callback to refresh data
       if (onBallotDeleted) {
         onBallotDeleted();
-      }
-
-      // Close the modal or navigate to next ballot
-      if (ballots.length === 1) {
-        handleClose();
-      } else {
-        // Adjust the selected index if needed
-        if (selectedBallotIndex >= ballots.length - 1) {
-          setSelectedBallotIndex(Math.max(0, ballots.length - 2));
-        }
       }
     } catch (error) {
       console.error('Error deleting ballot:', error);
@@ -113,7 +121,7 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
       >
         <h2 className="text-2xl font-extrabold mb-6" style={{ color: '#1a1a1a' }}>View Ballots</h2>
 
-        {ballots.length === 0 ? (
+        {ballotsList.length === 0 ? (
           <div className="flex justify-center items-center py-8">
             <p className="text-sm font-medium" style={{ color: '#666' }}>No ballots available</p>
           </div>
@@ -122,8 +130,8 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
             {/* New Ballots Mode Indicator */}
             {isNewBallotsMode && (
               <div className="mb-4 p-3 brutal-border rounded-lg" style={{ backgroundColor: '#E5F5FF' }}>
-                <p className="text-sm font-bold text-center" style={{ color: '#1a1a1a' }}>
-                  {selectedBallotIndex + 1} of {ballots.length} new ballots
+                  <p className="text-sm font-bold text-center" style={{ color: '#1a1a1a' }}>
+                  {selectedBallotIndex + 1} of {ballotsList.length} new ballots
                 </p>
               </div>
             )}
@@ -144,7 +152,7 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
                     backgroundColor: '#ffffff'
                   }}
                 >
-                  {ballots.map((ballot, index) => (
+                  {ballotsList.map((ballot, index) => (
                     <option key={ballot.id} value={index}>
                       {ballot.reviewer_name} - {new Date(ballot.created_at).toLocaleDateString()}
                     </option>
@@ -154,7 +162,7 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
             )}
 
             {/* Navigation Buttons for New Ballots Mode */}
-            {isNewBallotsMode && ballots.length > 1 && (
+            {isNewBallotsMode && ballotsList.length > 1 && (
               <div className="flex justify-between items-center mb-6">
                 <button
                   type="button"
@@ -171,10 +179,10 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
                 <button
                   type="button"
                   onClick={handleNext}
-                  disabled={selectedBallotIndex === ballots.length - 1}
+                  disabled={selectedBallotIndex === ballotsList.length - 1}
                   className="brutal-button px-4 py-2 text-sm disabled:opacity-50"
                   style={{
-                    backgroundColor: selectedBallotIndex === ballots.length - 1 ? '#ccc' : 'var(--primary)',
+                    backgroundColor: selectedBallotIndex === ballotsList.length - 1 ? '#ccc' : 'var(--primary)',
                     color: '#ffffff'
                   }}
                 >

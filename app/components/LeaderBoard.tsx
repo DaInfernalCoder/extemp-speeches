@@ -317,6 +317,30 @@ const LeaderBoard: React.FC = () => {
     }
   };
 
+  const handleDeleteBallot = async (ballotId: string) => {
+    if (!confirm('Are you sure you want to delete this ballot?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/ballots/${ballotId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(`Failed to delete ballot: ${data.error || 'Unknown error'}`);
+        return;
+      }
+
+      // Refresh the leaderboard after successful deletion
+      fetchLeaderboard();
+    } catch (error) {
+      console.error('Error deleting ballot:', error);
+      alert('Failed to delete ballot. Please try again.');
+    }
+  };
+
   const podiumData: PodiumData[] = leaderboardData.slice(0, 3).map((entry, index) => ({
     name: entry.name,
     place: entry.place,
@@ -618,15 +642,31 @@ const LeaderBoard: React.FC = () => {
                           const ballotCount = speechDetail.ballots?.length || 0;
 
                           return (
-                            <div key={speechIndex} className="text-sm leading-normal">
+                            <div key={speechIndex} className="flex items-center gap-2">
                               {ballotCount > 0 ? (
-                                <button
-                                  onClick={() => openBallotViewModal(speechDetail.ballots)}
-                                  className="inline-block align-baseline font-bold hover:underline transition-colors p-0 m-0"
-                                  style={{ color: 'var(--primary)' }}
-                                >
-                                  {ballotCount} ballot{ballotCount !== 1 ? 's' : ''}
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => openBallotViewModal(speechDetail.ballots)}
+                                    className="inline-block align-baseline font-bold hover:underline transition-colors p-0 m-0 text-sm"
+                                    style={{ color: 'var(--primary)' }}
+                                  >
+                                    {ballotCount} ballot{ballotCount !== 1 ? 's' : ''}
+                                  </button>
+                                  {user && speechDetail.ballots?.map((ballot) => (
+                                    ballot.reviewer_id === user.id && (
+                                      <button
+                                        key={ballot.id}
+                                        onClick={() => handleDeleteBallot(ballot.id)}
+                                        className="flex items-center justify-center w-5 h-5 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
+                                        style={{ boxShadow: '2px 2px 0px #000' }}
+                                        title="Delete ballot"
+                                        aria-label="Delete ballot"
+                                      >
+                                        <span className="text-white text-xs font-bold leading-none">×</span>
+                                      </button>
+                                    )
+                                  ))}
+                                </>
                               ) : (
                                 <span className="text-gray-400">—</span>
                               )}
@@ -722,13 +762,29 @@ const LeaderBoard: React.FC = () => {
                                   </button>
                                 )}
                                 {ballotCount > 0 && (
-                                  <button
-                                    onClick={() => openBallotViewModal(speechDetail.ballots)}
-                                    className="inline-block align-baseline text-xs font-bold hover:underline p-0 m-0"
-                                    style={{ color: 'var(--primary)' }}
-                                  >
-                                    ({ballotCount} ballot{ballotCount !== 1 ? 's' : ''})
-                                  </button>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => openBallotViewModal(speechDetail.ballots)}
+                                      className="inline-block align-baseline text-xs font-bold hover:underline p-0 m-0"
+                                      style={{ color: 'var(--primary)' }}
+                                    >
+                                      ({ballotCount} ballot{ballotCount !== 1 ? 's' : ''})
+                                    </button>
+                                    {user && speechDetail.ballots?.map((ballot) => (
+                                      ballot.reviewer_id === user.id && (
+                                        <button
+                                          key={ballot.id}
+                                          onClick={() => handleDeleteBallot(ballot.id)}
+                                          className="flex items-center justify-center w-4 h-4 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
+                                          style={{ boxShadow: '1px 1px 0px #000' }}
+                                          title="Delete ballot"
+                                          aria-label="Delete ballot"
+                                        >
+                                          <span className="text-white text-xs font-bold leading-none">×</span>
+                                        </button>
+                                      )
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             </div>
