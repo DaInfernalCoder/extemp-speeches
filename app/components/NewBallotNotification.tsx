@@ -16,7 +16,7 @@ interface Ballot {
   focus_area_rating?: number | null;
   created_at: string;
   reviewer_name: string;
-  reviewer_id?: string;
+  reviewer_id: string;
   speech_url?: string;
   speech_submitted_at?: string;
 }

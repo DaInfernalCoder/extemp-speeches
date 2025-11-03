@@ -25,7 +25,7 @@ interface Ballot {
   focus_area_rating?: number | null;
   created_at: string;
   reviewer_name: string;
-  reviewer_id?: string;
+  reviewer_id: string;
 }
 
 interface SpeechDetails {
@@ -356,6 +356,8 @@ const LeaderBoard: React.FC = () => {
         speechTitle=""
         isNewBallotsMode={isNewBallotsMode}
         onMarkAsViewed={handleMarkBallotsAsViewed}
+        currentUserId={user?.id}
+        onBallotDeleted={handleModalSuccess}
       />
 
       <div

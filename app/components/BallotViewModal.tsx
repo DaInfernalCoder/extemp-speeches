@@ -15,6 +15,7 @@ interface Ballot {
   focus_area_rating?: number | null;
   created_at: string;
   reviewer_name: string;
+  reviewer_id: string;
 }
 
 interface BallotViewModalProps {
@@ -24,12 +25,16 @@ interface BallotViewModalProps {
   speechTitle: string;
   isNewBallotsMode?: boolean;
   onMarkAsViewed?: () => void;
+  currentUserId?: string;
+  onBallotDeleted?: () => void;
 }
 
-export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallotsMode = false, onMarkAsViewed }: BallotViewModalProps) {
+export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallotsMode = false, onMarkAsViewed, currentUserId, onBallotDeleted }: BallotViewModalProps) {
   const [selectedBallotIndex, setSelectedBallotIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const selectedBallot = ballots.length > 0 ? ballots[selectedBallotIndex] : null;
+  const canDelete = selectedBallot && currentUserId && selectedBallot.reviewer_id === currentUserId;
 
   const handleClose = () => {
     if (isNewBallotsMode && onMarkAsViewed && ballots.length > 0) {
@@ -51,6 +56,47 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
   const handlePrevious = () => {
     if (selectedBallotIndex > 0) {
       setSelectedBallotIndex(selectedBallotIndex - 1);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedBallot || !canDelete) return;
+
+    if (!confirm('Are you sure you want to delete this ballot?')) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/ballots/${selectedBallot.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete ballot');
+      }
+
+      // Call the callback to refresh data
+      if (onBallotDeleted) {
+        onBallotDeleted();
+      }
+
+      // Close the modal or navigate to next ballot
+      if (ballots.length === 1) {
+        handleClose();
+      } else {
+        // Adjust the selected index if needed
+        if (selectedBallotIndex >= ballots.length - 1) {
+          setSelectedBallotIndex(Math.max(0, ballots.length - 2));
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting ballot:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete ballot');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -274,8 +320,23 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
               </>
             )}
 
-            {/* Close Button */}
+            {/* Action Buttons */}
             <div className="flex gap-3 justify-end">
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="brutal-button px-6 py-2 text-base"
+                  style={{
+                    backgroundColor: 'var(--error)',
+                    color: '#ffffff',
+                    opacity: isDeleting ? 0.5 : 1
+                  }}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleClose}
@@ -284,7 +345,7 @@ export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallots
                   color: '#1a1a1a'
                 }}
               >
-                {isNewBallotsMode ? 'Close' : 'Close'}
+                Close
               </button>
             </div>
           </>

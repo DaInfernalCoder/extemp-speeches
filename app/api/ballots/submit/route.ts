@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       .eq('id', speech.user_id)
       .single();
 
-    const hasFocusArea = speaker?.focus_area && speaker.focus_area.trim().length > 0;
+    let hasFocusArea = speaker?.focus_area && speaker.focus_area.trim().length > 0;
 
     // Validate focus area fields based on whether speaker has one
     if (!hasFocusArea) {
@@ -152,6 +152,33 @@ export async function POST(request: Request) {
       }
     }
 
+    // Update speaker's focus area BEFORE inserting ballot to ensure data consistency
+    // If speaker had no focus area, this update is critical and must succeed
+    if (new_focus_area && typeof new_focus_area === 'string' && new_focus_area.trim().length > 0) {
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ focus_area: new_focus_area.trim() })
+        .eq('id', speech.user_id);
+
+      if (updateError) {
+        console.error('Error updating focus area:', updateError);
+        // If speaker had no focus area, this update is critical - fail the request
+        // This ensures data consistency: if someone sets a focus area via ballot, it must be saved
+        if (!hasFocusArea) {
+          return NextResponse.json(
+            { error: 'Failed to save focus area. Please try again.' },
+            { status: 500 }
+          );
+        }
+        // If speaker already had a focus area, log but don't fail (just updating it)
+      } else {
+        // Update hasFocusArea if we just set it
+        if (!hasFocusArea) {
+          hasFocusArea = true;
+        }
+      }
+    }
+
     // Insert the ballot
     const { data, error } = await supabase
       .from('ballots')
@@ -178,19 +205,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Update speaker's focus area if new_focus_area is provided and not empty
-    if (new_focus_area && typeof new_focus_area === 'string' && new_focus_area.trim().length > 0) {
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ focus_area: new_focus_area.trim() })
-        .eq('id', speech.user_id);
-
-      if (updateError) {
-        console.error('Error updating focus area:', updateError);
-        // Don't fail the request if focus area update fails, just log it
-      }
-    }
-
     // Get speech owner details and reviewer name for email notification
     const { data: speechOwner } = await supabase
       .from('users')
@@ -210,9 +224,20 @@ export async function POST(request: Request) {
       .eq('id', speech_id)
       .single();
 
+    // Debug logging
+    console.log('Email notification check:', {
+      hasEmail: !!speechOwner?.email,
+      email: speechOwner?.email,
+      hasReviewerName: !!reviewer?.name,
+      reviewerName: reviewer?.name,
+      hasSpeechUrl: !!speechDetails?.speech_url,
+      speechUrl: speechDetails?.speech_url,
+    });
+
     // Send email notification to speech owner
     if (speechOwner?.email && reviewer?.name && speechDetails?.speech_url) {
       try {
+        console.log('Attempting to send ballot notification email to:', speechOwner.email);
         await sendBallotNotificationEmail(
           speechOwner.email,
           speechOwner.name || 'Speaker',
@@ -228,10 +253,13 @@ export async function POST(request: Request) {
             speechUrl: speechDetails.speech_url,
           }
         );
+        console.log('Successfully sent ballot notification email to:', speechOwner.email);
       } catch (emailError) {
         console.error('Error sending ballot notification email:', emailError);
         // Don't fail the request if email fails
       }
+    } else {
+      console.log('Skipping email notification - missing required data');
     }
 
     return NextResponse.json(

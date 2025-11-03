@@ -32,8 +32,30 @@ export async function GET() {
 
     const focusArea = userData?.focus_area || null;
 
-    // If no focus area, return early
+    // Check for data inconsistency: if user has no focus_area but has ballots with focus_area_rating
+    // This could happen if focus_area was cleared after ballots were submitted, or due to a previous bug
     if (!focusArea) {
+      // Get all speeches by this user first
+      const { data: speeches } = await supabase
+        .from('speeches')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (speeches && speeches.length > 0) {
+        const speechIds = speeches.map(s => s.id);
+        const { data: ballotsWithRating } = await supabase
+          .from('ballots')
+          .select('id')
+          .in('speech_id', speechIds)
+          .not('focus_area_rating', 'is', null)
+          .limit(1);
+
+        if (ballotsWithRating && ballotsWithRating.length > 0) {
+          // Data inconsistency detected: user has ballots with focus_area_rating but no focus_area
+          console.warn(`Data inconsistency detected for user ${user.id}: has ${ballotsWithRating.length} ballot(s) with focus_area_rating but focus_area is null/empty`);
+        }
+      }
+
       return NextResponse.json({
         focus_area: null,
         focus_area_ratings: [],
