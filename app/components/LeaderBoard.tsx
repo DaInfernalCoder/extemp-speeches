@@ -317,22 +317,37 @@ const LeaderBoard: React.FC = () => {
     }
   };
 
-  const handleDeleteBallot = async (ballotId: string) => {
+  const handleDeleteBallot = async (ballotId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    if (!ballotId) {
+      console.error('Ballot ID is missing');
+      alert('Error: Ballot ID is missing. Please try again.');
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this ballot?')) {
       return;
     }
 
     try {
+      console.log('Deleting ballot with ID:', ballotId);
       const response = await fetch(`/api/ballots/${ballotId}`, {
         method: 'DELETE',
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const data = await response.json();
+        console.error('Delete failed:', response.status, data);
         alert(`Failed to delete ballot: ${data.error || 'Unknown error'}`);
         return;
       }
 
+      console.log('Ballot deleted successfully:', data);
       // Refresh the leaderboard after successful deletion
       fetchLeaderboard();
     } catch (error) {
@@ -652,11 +667,15 @@ const LeaderBoard: React.FC = () => {
                                   >
                                     {ballotCount} ballot{ballotCount !== 1 ? 's' : ''}
                                   </button>
-                                  {user && speechDetail.ballots?.map((ballot) => (
-                                    ballot.reviewer_id === user.id && (
+                                  {user && speechDetail.ballots?.map((ballot) => {
+                                    if (!ballot.id) {
+                                      console.warn('Ballot missing ID:', ballot);
+                                      return null;
+                                    }
+                                    return ballot.reviewer_id === user.id ? (
                                       <button
                                         key={ballot.id}
-                                        onClick={() => handleDeleteBallot(ballot.id)}
+                                        onClick={(e) => handleDeleteBallot(ballot.id, e)}
                                         className="flex items-center justify-center w-5 h-5 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
                                         style={{ boxShadow: '2px 2px 0px #000' }}
                                         title="Delete ballot"
@@ -664,8 +683,8 @@ const LeaderBoard: React.FC = () => {
                                       >
                                         <span className="text-white text-xs font-bold leading-none">×</span>
                                       </button>
-                                    )
-                                  ))}
+                                    ) : null;
+                                  })}
                                 </>
                               ) : (
                                 <span className="text-gray-400">—</span>
@@ -770,11 +789,15 @@ const LeaderBoard: React.FC = () => {
                                     >
                                       ({ballotCount} ballot{ballotCount !== 1 ? 's' : ''})
                                     </button>
-                                    {user && speechDetail.ballots?.map((ballot) => (
-                                      ballot.reviewer_id === user.id && (
+                                    {user && speechDetail.ballots?.map((ballot) => {
+                                      if (!ballot.id) {
+                                        console.warn('Ballot missing ID:', ballot);
+                                        return null;
+                                      }
+                                      return ballot.reviewer_id === user.id ? (
                                         <button
                                           key={ballot.id}
-                                          onClick={() => handleDeleteBallot(ballot.id)}
+                                          onClick={(e) => handleDeleteBallot(ballot.id, e)}
                                           className="flex items-center justify-center w-4 h-4 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
                                           style={{ boxShadow: '1px 1px 0px #000' }}
                                           title="Delete ballot"
@@ -782,8 +805,8 @@ const LeaderBoard: React.FC = () => {
                                         >
                                           <span className="text-white text-xs font-bold leading-none">×</span>
                                         </button>
-                                      )
-                                    ))}
+                                      ) : null;
+                                    })}
                                   </div>
                                 )}
                               </div>

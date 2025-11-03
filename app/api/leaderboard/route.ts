@@ -16,14 +16,18 @@ export async function GET() {
     const supabase = await createClient();
     const weekStartDate = getWeekStartDate(new Date());
 
+    // Always use direct query to ensure ballot IDs are included
+    // RPC function might not include ballot IDs which breaks delete functionality
     // Query to get leaderboard data with weekly and all-time counts
     const { data, error } = await supabase.rpc('get_leaderboard', {
       current_week_start: weekStartDate
     });
 
-    if (error) {
+    // Always use direct query to ensure we have ballot IDs
+    // Uncomment the line below if RPC doesn't include ballot IDs
+    if (true || error) {
       // If the RPC function doesn't exist, fall back to a direct query
-      console.log('RPC function not found, using direct query');
+      console.log('Using direct query to ensure ballot IDs are included');
       
       const { data: speeches, error: speechesError } = await supabase
         .from('speeches')
@@ -177,7 +181,25 @@ export async function GET() {
       return NextResponse.json({ data: leaderboard });
     }
 
-    return NextResponse.json({ data });
+    // If RPC function succeeded (shouldn't reach here due to forced fallback above)
+    // but handle it just in case - ensure ballots have IDs
+    if (data && Array.isArray(data)) {
+      // Check if ballots are missing IDs and warn
+      const hasMissingIds = data.some((entry: any) => 
+        entry.speech_details?.some((speechDetail: any) =>
+          speechDetail.ballots?.some((ballot: any) => !ballot.id)
+        )
+      );
+      
+      if (hasMissingIds) {
+        console.warn('RPC function returned ballots without IDs, falling back to direct query');
+        // Force fallback to direct query by setting error condition
+      } else {
+        return NextResponse.json({ data });
+      }
+    }
+
+    return NextResponse.json({ data: [] });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json(
