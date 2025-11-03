@@ -22,16 +22,36 @@ interface BallotViewModalProps {
   onClose: () => void;
   ballots: Ballot[];
   speechTitle: string;
+  isNewBallotsMode?: boolean;
+  onMarkAsViewed?: () => void;
 }
 
-export default function BallotViewModal({ isOpen, onClose, ballots }: BallotViewModalProps) {
+export default function BallotViewModal({ isOpen, onClose, ballots, isNewBallotsMode = false, onMarkAsViewed }: BallotViewModalProps) {
   const [selectedBallotIndex, setSelectedBallotIndex] = useState(0);
 
   const selectedBallot = ballots.length > 0 ? ballots[selectedBallotIndex] : null;
 
   const handleClose = () => {
+    if (isNewBallotsMode && onMarkAsViewed && ballots.length > 0) {
+      // Update localStorage timestamp when closing after viewing new ballots
+      const now = new Date().toISOString();
+      localStorage.setItem('lastBallotViewTimestamp', now);
+      onMarkAsViewed();
+    }
     setSelectedBallotIndex(0);
     onClose();
+  };
+
+  const handleNext = () => {
+    if (selectedBallotIndex < ballots.length - 1) {
+      setSelectedBallotIndex(selectedBallotIndex + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (selectedBallotIndex > 0) {
+      setSelectedBallotIndex(selectedBallotIndex - 1);
+    }
   };
 
   if (!isOpen) return null;
@@ -53,28 +73,69 @@ export default function BallotViewModal({ isOpen, onClose, ballots }: BallotView
           </div>
         ) : (
           <>
-            {/* Ballot Selection Dropdown */}
-            <div className="mb-6">
-              <label htmlFor="ballot-select" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
-                Select Ballot
-              </label>
-              <select
-                id="ballot-select"
-                value={selectedBallotIndex}
-                onChange={(e) => setSelectedBallotIndex(Number(e.target.value))}
-                className="w-full px-4 py-2 brutal-border rounded-lg text-sm"
-                style={{
-                  color: '#1a1a1a',
-                  backgroundColor: '#ffffff'
-                }}
-              >
-                {ballots.map((ballot, index) => (
-                  <option key={ballot.id} value={index}>
-                    {ballot.reviewer_name} - {new Date(ballot.created_at).toLocaleDateString()}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* New Ballots Mode Indicator */}
+            {isNewBallotsMode && (
+              <div className="mb-4 p-3 brutal-border rounded-lg" style={{ backgroundColor: '#E5F5FF' }}>
+                <p className="text-sm font-bold text-center" style={{ color: '#1a1a1a' }}>
+                  {selectedBallotIndex + 1} of {ballots.length} new ballots
+                </p>
+              </div>
+            )}
+
+            {/* Ballot Selection Dropdown - Only show if not in new ballots mode */}
+            {!isNewBallotsMode && (
+              <div className="mb-6">
+                <label htmlFor="ballot-select" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
+                  Select Ballot
+                </label>
+                <select
+                  id="ballot-select"
+                  value={selectedBallotIndex}
+                  onChange={(e) => setSelectedBallotIndex(Number(e.target.value))}
+                  className="w-full px-4 py-2 brutal-border rounded-lg text-sm"
+                  style={{
+                    color: '#1a1a1a',
+                    backgroundColor: '#ffffff'
+                  }}
+                >
+                  {ballots.map((ballot, index) => (
+                    <option key={ballot.id} value={index}>
+                      {ballot.reviewer_name} - {new Date(ballot.created_at).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Navigation Buttons for New Ballots Mode */}
+            {isNewBallotsMode && ballots.length > 1 && (
+              <div className="flex justify-between items-center mb-6">
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  disabled={selectedBallotIndex === 0}
+                  className="brutal-button px-4 py-2 text-sm disabled:opacity-50"
+                  style={{
+                    backgroundColor: selectedBallotIndex === 0 ? '#ccc' : 'var(--primary)',
+                    color: '#ffffff'
+                  }}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={selectedBallotIndex === ballots.length - 1}
+                  className="brutal-button px-4 py-2 text-sm disabled:opacity-50"
+                  style={{
+                    backgroundColor: selectedBallotIndex === ballots.length - 1 ? '#ccc' : 'var(--primary)',
+                    color: '#ffffff'
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
 
             {/* Ballot Display */}
             {selectedBallot && (
@@ -223,7 +284,7 @@ export default function BallotViewModal({ isOpen, onClose, ballots }: BallotView
                   color: '#1a1a1a'
                 }}
               >
-                Close
+                {isNewBallotsMode ? 'Close' : 'Close'}
               </button>
             </div>
           </>

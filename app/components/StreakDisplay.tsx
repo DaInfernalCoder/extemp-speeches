@@ -50,7 +50,11 @@ export default function StreakDisplay() {
   };
 
   if (loading) {
-    return null; // Don't show anything while loading
+    return (
+      <div className="flex-1 flex justify-center">
+        <p className="text-sm font-bold" style={{ color: '#1a1a1a' }}>—</p>
+      </div>
+    );
   }
 
   const currentStreak = data?.current_streak || 0;
@@ -59,35 +63,28 @@ export default function StreakDisplay() {
   const fireIntensity = Math.min(currentStreak, 10); // Max intensity at 10 day streak
 
   return (
-    <div className="brutal-card p-4 sm:p-6 mb-6 sm:mb-8">
-      <div className="flex items-center justify-center gap-3">
-        {/* Fire Animation */}
-        <div className="relative">
-          <NeobrutalistFire size={48} intensity={fireIntensity} />
-        </div>
-        
-        {/* Streak Text */}
-        <div className="text-center">
-          <h3 className="text-lg sm:text-xl font-extrabold" style={{ color: '#1a1a1a' }}>
-            {currentStreak > 0 ? (
-              <>
-                {currentStreak} Day{currentStreak !== 1 ? 's' : ''} Streak
-              </>
-            ) : (
-              <>Start Your Streak!</>
-            )}
-          </h3>
-          {longestStreak > currentStreak && longestStreak > 0 && (
-            <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: '#666' }}>
-              Best: {longestStreak} days
-            </p>
+    <div className="flex-1 flex items-center justify-center gap-2 sm:gap-3">
+      {/* Fire Animation */}
+      <div className="relative">
+        <NeobrutalistFire size={32} intensity={fireIntensity} />
+      </div>
+      
+      {/* Streak Text */}
+      <div className="text-center">
+        <p className="text-sm sm:text-base font-extrabold" style={{ color: '#1a1a1a' }}>
+          {currentStreak > 0 ? (
+            <>
+              {currentStreak} Day{currentStreak !== 1 ? 's' : ''} Streak
+            </>
+          ) : (
+            <>Start Your Streak!</>
           )}
-          {currentStreak === 0 && longestStreak === 0 && (
-            <p className="text-xs sm:text-sm font-medium mt-1" style={{ color: '#666' }}>
-              Submit a speech to begin!
-            </p>
-          )}
-        </div>
+        </p>
+        {longestStreak > currentStreak && longestStreak > 0 && (
+          <p className="text-xs font-medium mt-0.5" style={{ color: '#666' }}>
+            Best: {longestStreak} days
+          </p>
+        )}
       </div>
     </div>
   );

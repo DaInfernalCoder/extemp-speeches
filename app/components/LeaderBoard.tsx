@@ -10,6 +10,7 @@ import BallotViewModal from './BallotViewModal';
 import FeatureRequestModal from './FeatureRequestModal';
 import FocusAreaDisplay from './FocusAreaDisplay';
 import StreakDisplay from './StreakDisplay';
+import NewBallotNotification from './NewBallotNotification';
 import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface Ballot {
@@ -119,6 +120,8 @@ const LeaderBoard: React.FC = () => {
   const [emailRemindersEnabled, setEmailRemindersEnabled] = useState(true);
   const [updatingPreferences, setUpdatingPreferences] = useState(false);
   const [preselectedSpeechId, setPreselectedSpeechId] = useState<string | undefined>(undefined);
+  const [isNewBallotsMode, setIsNewBallotsMode] = useState(false);
+  const [ballotNotificationRefresh, setBallotNotificationRefresh] = useState(0);
   const supabase = useMemo(() => createClient(), []);
 
   const fetchLeaderboard = useCallback(async () => {
@@ -275,9 +278,19 @@ const LeaderBoard: React.FC = () => {
     fetchLeaderboard();
   };
 
-  const openBallotViewModal = (ballots: Ballot[]) => {
+  const openBallotViewModal = (ballots: Ballot[], newBallotsMode = false) => {
     setSelectedBallots(ballots);
+    setIsNewBallotsMode(newBallotsMode);
     setIsBallotViewModalOpen(true);
+  };
+
+  const handleNewBallotsClick = (newBallots: Ballot[]) => {
+    openBallotViewModal(newBallots, true);
+  };
+
+  const handleMarkBallotsAsViewed = () => {
+    // Trigger refresh of ballot notification
+    setBallotNotificationRefresh(prev => prev + 1);
   };
 
   const handleDeleteSpeech = async (speechId: string) => {
@@ -335,19 +348,29 @@ const LeaderBoard: React.FC = () => {
       />
       <BallotViewModal
         isOpen={isBallotViewModalOpen}
-        onClose={() => setIsBallotViewModalOpen(false)}
+        onClose={() => {
+          setIsBallotViewModalOpen(false);
+          setIsNewBallotsMode(false);
+        }}
         ballots={selectedBallots}
         speechTitle=""
+        isNewBallotsMode={isNewBallotsMode}
+        onMarkAsViewed={handleMarkBallotsAsViewed}
       />
 
       <div
         className="min-h-screen p-4 sm:p-8"
       >
-        {/* Streak and Focus Area Display */}
+        {/* Focus Area, Streak, and New Ballot Notification */}
         {user && (
           <div className="max-w-4xl mx-auto mb-6 sm:mb-8">
-            <StreakDisplay />
-            <FocusAreaDisplay />
+            <div className="brutal-card p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <FocusAreaDisplay />
+                <StreakDisplay />
+                <NewBallotNotification onBallotsClick={handleNewBallotsClick} refreshTrigger={ballotNotificationRefresh} />
+              </div>
+            </div>
           </div>
         )}
 

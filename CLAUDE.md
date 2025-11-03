@@ -123,7 +123,7 @@ The application uses **Resend** for email delivery:
 - **Email Templates**: Located in [lib/resend.ts](lib/resend.ts) with functions for:
   - `sendDailyReminderEmail()`: Daily reminder for users who haven't submitted a speech
   - `sendBallotNotificationEmail()`: Notification when a user receives feedback on their speech
-  - `sendSpeechSubmissionAlert()`: Alert to coaches when a new speech is submitted
+  - `sendSpeechSubmissionAlert()`: Alert to coaches when a new speech is submitted (recipients are dynamically fetched from database by name - Arnav and Sumit)
   - `sendFeatureRequestAlert()`: Alert for new feature requests
 - **Scheduled Emails**: Daily reminders are triggered via Supabase pg_cron job calling the `/api/emails/daily-reminder` endpoint
 - **Configuration**:

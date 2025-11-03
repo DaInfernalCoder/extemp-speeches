@@ -191,17 +191,53 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single();
 
-    // Send email notification to Arnav and Sumit
+    // Get coach emails from database (Arnav and Sumit)
     if (userData?.name) {
       try {
-        await sendSpeechSubmissionAlert({
-          speakerName: userData.name,
-          speechUrl: speechUrl,
-          submittedAt: new Date().toISOString(),
-        });
+        // Fallback to hardcoded emails to ensure delivery
+        const fallbackEmails = [
+          'arnav.y.reddy@gmail.com',
+          'dattasumit2019@gmail.com'
+        ];
+        
+        const { data: allUsers } = await supabase
+          .from('users')
+          .select('email, name');
+
+        // Filter for coaches by name (case-insensitive)
+        const dbEmails = allUsers
+          ?.filter(user => {
+            const name = user.name?.toLowerCase() || '';
+            return name.includes('arnav') || name.includes('sumit');
+          })
+          .map(coach => coach.email)
+          .filter((email): email is string => Boolean(email)) || [];
+
+        // Use database emails if found, otherwise fallback to hardcoded
+        // Also merge to ensure we don't miss anyone
+        const recipientEmails = dbEmails.length > 0 
+          ? [...new Set([...dbEmails, ...fallbackEmails])] // Merge and deduplicate
+          : fallbackEmails;
+
+        if (recipientEmails.length > 0) {
+          await sendSpeechSubmissionAlert({
+            speakerName: userData.name,
+            speechUrl: speechUrl,
+            submittedAt: new Date().toISOString(),
+          }, recipientEmails);
+        }
       } catch (emailError) {
         console.error('Error sending speech submission alert:', emailError);
-        // Don't fail the request if email fails
+        // Fallback to hardcoded emails on error
+        try {
+          await sendSpeechSubmissionAlert({
+            speakerName: userData.name,
+            speechUrl: speechUrl,
+            submittedAt: new Date().toISOString(),
+          }, ['arnav.y.reddy@gmail.com', 'dattasumit2019@gmail.com']);
+        } catch (fallbackError) {
+          console.error('Error sending fallback email:', fallbackError);
+        }
       }
     }
 

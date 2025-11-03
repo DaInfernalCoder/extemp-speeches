@@ -320,8 +320,14 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess, preselec
                 ) : (
                   // Has focus area - show slider and conditional textbox
                   <div>
+                    <label htmlFor="focus-area-rating" className="block text-sm font-bold mb-2" style={{ color: '#1a1a1a' }}>
+                      Focus Area:
+                    </label>
+                    <p className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+                      {selectedSpeech.focus_area}
+                    </p>
                     <label htmlFor="focus-area-rating" className="block text-sm font-bold mb-1" style={{ color: '#1a1a1a' }}>
-                      Focus Area: {selectedSpeech.focus_area} - {focusAreaRating}
+                      Rating: {focusAreaRating}
                     </label>
                     <input
                       id="focus-area-rating"

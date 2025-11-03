@@ -300,7 +300,8 @@ export async function sendBallotNotificationEmail(
 }
 
 export async function sendSpeechSubmissionAlert(
-  submission: SpeechSubmission
+  submission: SpeechSubmission,
+  recipientEmails: string[]
 ): Promise<void> {
   const subject = `🎤 New Speech Submitted by ${submission.speakerName}`;
   
@@ -377,12 +378,7 @@ export async function sendSpeechSubmissionAlert(
     </html>
   `;
 
-  const recipients = [
-    'arnav.y.reddy@gmail.com',
-    'dattasumit2019@gmail.com'
-  ];
-
-  for (const recipient of recipients) {
+  for (const recipient of recipientEmails) {
     await resend.emails.send({
       from: FROM_EMAIL,
       to: recipient,
