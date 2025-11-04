@@ -205,10 +205,31 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get speech owner details and reviewer name for email notification
+    // Get speech owner email from auth.users using service role client
+    // This ensures we get the exact email from the authenticated account
+    let speechOwnerEmail: string | null = null;
+    try {
+      const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
+      const supabaseAdmin = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      
+      const { data: authUser, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(speech.user_id);
+      
+      if (authUserError) {
+        console.error('Error fetching email from auth.users:', authUserError);
+      } else {
+        speechOwnerEmail = authUser.user?.email || null;
+      }
+    } catch (adminError) {
+      console.error('Error creating admin client or fetching auth user:', adminError);
+    }
+
+    // Get speech owner name from users table for display purposes
     const { data: speechOwner } = await supabase
       .from('users')
-      .select('email, name')
+      .select('name')
       .eq('id', speech.user_id)
       .single();
 
@@ -226,8 +247,10 @@ export async function POST(request: Request) {
 
     // Debug logging
     console.log('Email notification check:', {
-      hasEmail: !!speechOwner?.email,
-      email: speechOwner?.email,
+      hasEmail: !!speechOwnerEmail,
+      email: speechOwnerEmail,
+      hasSpeakerName: !!speechOwner?.name,
+      speakerName: speechOwner?.name,
       hasReviewerName: !!reviewer?.name,
       reviewerName: reviewer?.name,
       hasSpeechUrl: !!speechDetails?.speech_url,
@@ -235,12 +258,12 @@ export async function POST(request: Request) {
     });
 
     // Send email notification to speech owner
-    if (speechOwner?.email && reviewer?.name && speechDetails?.speech_url) {
+    if (speechOwnerEmail && reviewer?.name && speechDetails?.speech_url) {
       try {
-        console.log('Attempting to send ballot notification email to:', speechOwner.email);
+        console.log('Attempting to send ballot notification email to:', speechOwnerEmail);
         await sendBallotNotificationEmail(
-          speechOwner.email,
-          speechOwner.name || 'Speaker',
+          speechOwnerEmail,
+          speechOwner?.name || 'Speaker',
           {
             reviewerName: reviewer.name,
             gestures,
@@ -253,7 +276,7 @@ export async function POST(request: Request) {
             speechUrl: speechDetails.speech_url,
           }
         );
-        console.log('Successfully sent ballot notification email to:', speechOwner.email);
+        console.log('Successfully sent ballot notification email to:', speechOwnerEmail);
       } catch (emailError) {
         console.error('Error sending ballot notification email:', emailError);
         // Don't fail the request if email fails

@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { emailRateLimiter } from './email-rate-limiter';
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error('RESEND_API_KEY is not set');
@@ -386,6 +387,7 @@ export async function sendSpeechSubmissionAlert(
   `;
 
   for (const recipient of recipientEmails) {
+    await emailRateLimiter.waitForRateLimit();
     await resend.emails.send({
       from: FROM_EMAIL,
       to: recipient,

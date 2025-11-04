@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendDailyReminderEmail } from '@/lib/resend';
+import { emailRateLimiter } from '@/lib/email-rate-limiter';
 
 export async function POST(request: Request) {
   try {
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
     const results = [];
     for (const user of usersToEmail) {
       try {
+        await emailRateLimiter.waitForRateLimit();
         await sendDailyReminderEmail(
           user.email,
           user.name || 'there'
