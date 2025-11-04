@@ -128,7 +128,7 @@ The application uses **Resend** for email delivery:
 - **Scheduled Emails**: Daily reminders are triggered via Supabase pg_cron job calling the `/api/emails/daily-reminder` endpoint
 - **Configuration**:
   - Requires `RESEND_API_KEY` environment variable
-  - From address: `yourextempcoaches@extemp.scaleprospectr.com`
+  - From address: `yourextempcoaches@scaleprospectr.com`
   - Email links base URL resolution order:
     1. `NEXT_PUBLIC_SITE_URL` (recommended to set to `https://extemp-speeches.vercel.app/` in production)
     2. `VERCEL_URL` (auto-provided by Vercel, prefixed with `https://`)
