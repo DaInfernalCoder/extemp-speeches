@@ -18,3 +18,5 @@ export const config = {
   ],
 };
 
+export default middleware;
+
