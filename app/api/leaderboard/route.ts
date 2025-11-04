@@ -19,6 +19,8 @@ function getWeekStartDate(date: Date): string {
   return d.toISOString().split('T')[0];
 }
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const supabase = await createClient();

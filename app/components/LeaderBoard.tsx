@@ -126,7 +126,7 @@ const LeaderBoard: React.FC = () => {
 
   const fetchLeaderboard = useCallback(async () => {
     try {
-      const response = await fetch('/api/leaderboard');
+      const response = await fetch('/api/leaderboard', { cache: 'no-store' });
       if (!response.ok) {
         console.error('Failed to fetch leaderboard:', response.status, response.statusText);
         setLoading(false);
