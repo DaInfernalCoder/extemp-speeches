@@ -5,7 +5,7 @@ if (!process.env.RESEND_API_KEY) {
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = 'yourextempcoaches@resend.dev';
+const FROM_EMAIL = 'yourextempcoaches@elkins.scaleprospectr.com';
 // Default timezone for human-readable times in emails. Can be overridden via env.
 const EMAIL_TIMEZONE = process.env.EMAIL_TIMEZONE || 'America/Chicago';
 
