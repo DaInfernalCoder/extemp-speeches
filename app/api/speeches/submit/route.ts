@@ -196,65 +196,24 @@ export async function POST(request: Request) {
       speakerName: userData?.name,
     });
 
-    // Get coach emails from database (Arnav and Sumit)
+    // Send coach notification emails (Arnav and Sumit)
     if (userData?.name) {
       try {
-        // Fallback to hardcoded emails to ensure delivery
-        const fallbackEmails = [
+        const coachEmails = [
           'arnav.y.reddy@gmail.com',
           'dattasumit2019@gmail.com'
         ];
 
-        const { data: allUsers } = await supabase
-          .from('users')
-          .select('email, name');
-
-        console.log('Fetched all users for coach filtering:', allUsers?.length);
-
-        // Filter for coaches by name (case-insensitive)
-        const dbEmails = allUsers
-          ?.filter(user => {
-            const name = user.name?.toLowerCase() || '';
-            return name.includes('arnav') || name.includes('sumit');
-          })
-          .map(coach => coach.email)
-          .filter((email): email is string => Boolean(email)) || [];
-
-        console.log('Coach emails from database:', dbEmails);
-
-        // Use database emails if found, otherwise fallback to hardcoded
-        // Also merge to ensure we don't miss anyone
-        const recipientEmails = dbEmails.length > 0
-          ? [...new Set([...dbEmails, ...fallbackEmails])] // Merge and deduplicate
-          : fallbackEmails;
-
-        console.log('Final recipient emails for speech submission alert:', recipientEmails);
-
-        if (recipientEmails.length > 0) {
-          console.log('Attempting to send speech submission alert to coaches...');
-          await sendSpeechSubmissionAlert({
-            speakerName: userData.name,
-            speechUrl: speechUrl,
-            submittedAt: new Date().toISOString(),
-          }, recipientEmails);
-          console.log('Successfully sent speech submission alert to:', recipientEmails);
-        } else {
-          console.log('No recipient emails found - skipping coach notification');
-        }
+        console.log('Sending speech submission alert to coaches:', coachEmails);
+        await sendSpeechSubmissionAlert({
+          speakerName: userData.name,
+          speechUrl: speechUrl,
+          submittedAt: new Date().toISOString(),
+        }, coachEmails);
+        console.log('Successfully sent speech submission alert to coaches');
       } catch (emailError) {
         console.error('Error sending speech submission alert:', emailError);
-        // Fallback to hardcoded emails on error
-        try {
-          console.log('Attempting fallback email to hardcoded addresses...');
-          await sendSpeechSubmissionAlert({
-            speakerName: userData.name,
-            speechUrl: speechUrl,
-            submittedAt: new Date().toISOString(),
-          }, ['arnav.y.reddy@gmail.com', 'dattasumit2019@gmail.com']);
-          console.log('Successfully sent fallback email to hardcoded addresses');
-        } catch (fallbackError) {
-          console.error('Error sending fallback email:', fallbackError);
-        }
+        // Don't fail the request if email fails
       }
     } else {
       console.log('Skipping coach notification - no speaker name found');
