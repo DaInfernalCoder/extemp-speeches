@@ -125,7 +125,9 @@ The application uses **Resend** for email delivery:
   - `sendBallotNotificationEmail()`: Notification when a user receives feedback on their speech (email fetched directly from auth.users using service role client to ensure exact email match)
   - `sendSpeechSubmissionAlert()`: Alert to coaches when a new speech is submitted (recipients are hardcoded: Arnav and Sumit)
   - `sendFeatureRequestAlert()`: Alert for new feature requests
-- **Scheduled Emails**: Daily reminders are triggered via Supabase pg_cron job calling the `/api/emails/daily-reminder` endpoint
+- **Scheduled Emails**: Daily reminders are triggered via Vercel cron jobs (configured in [vercel.json](vercel.json)) calling the `/api/emails/daily-reminder` endpoint
+  - Cron schedule: `0 23 * * *` (23:00 UTC daily, approximately 6pm America/Chicago time)
+  - Requires `CRON_SECRET` environment variable set in Vercel project settings
 - **Configuration**:
   - Requires `RESEND_API_KEY` environment variable
   - From address: `yourextempcoaches@extemp.scaleprospectr.com`
@@ -251,12 +253,13 @@ The application uses **Resend** for email delivery:
   - Updates `email_reminders_enabled` field in users table
   - Requires authentication
 
-- **POST /api/emails/daily-reminder**: Trigger daily reminder emails
+- **GET/POST /api/emails/daily-reminder**: Trigger daily reminder emails
   - Sends reminder emails to users who:
     1. Have `email_reminders_enabled = true`
     2. Haven't submitted a speech today
-  - Called by Supabase pg_cron job (scheduled external invocation)
-  - Requires `CRON_SECRET` header matching environment variable for authorization
+  - Called by Vercel cron jobs (GET requests) configured in [vercel.json](vercel.json)
+  - Also accepts POST requests for backward compatibility and manual testing
+  - Requires `Authorization: Bearer {CRON_SECRET}` header matching environment variable for authorization
   - Uses Supabase service role for database access (no user session required)
   - Sends emails via Resend service
   - Updates `last_reminder_sent_at` timestamp for tracking
