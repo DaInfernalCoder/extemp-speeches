@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import AuthButton from './AuthButton';
 import SpeechSubmitModal from './SpeechSubmitModal';
@@ -816,6 +817,17 @@ const LeaderBoard: React.FC = () => {
         </div>
         </div>
         )}
+
+        {/* Footer with Privacy Policy Link */}
+        <div className="max-w-4xl mx-auto mt-12 mb-8 text-center">
+          <Link
+            href="/privacy"
+            className="text-sm font-bold hover:underline transition-colors"
+            style={{ color: 'var(--primary)' }}
+          >
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     </>
   );

@@ -33,6 +33,7 @@ npm run lint
 This project uses Next.js 16's App Router architecture:
 - **app/layout.tsx**: Root layout defining global structure, fonts (Geist Sans/Mono), and metadata
 - **app/page.tsx**: Home page that renders the LeaderBoard component
+- **app/privacy/page.tsx**: Privacy policy page with comprehensive information about data collection and usage
 - **app/components/**: React components (currently contains LeaderBoard.tsx)
 - **app/globals.css**: Global styles using Tailwind CSS v4 syntax
 
@@ -132,7 +133,7 @@ The application uses **Resend** for email delivery:
   - Requires `RESEND_API_KEY` environment variable
   - From address: `yourextempcoaches@extemp.scaleprospectr.com`
   - Email links base URL resolution order:
-    1. `NEXT_PUBLIC_SITE_URL` (recommended to set to `https://extemp-speeches.vercel.app/` in production)
+    1. `NEXT_PUBLIC_SITE_URL` (recommended to set to `https://extemp-speeches.vibe-list.com/` in production)
     2. `VERCEL_URL` (auto-provided by Vercel, prefixed with `https://`)
     3. Fallback to `http://localhost:3000` for local development
   - Set `NEXT_PUBLIC_SITE_URL` in Vercel Project Settings → Environment Variables for Production (and Preview if desired)
@@ -280,6 +281,13 @@ The application features:
   - Shows reviewer names and rating criteria (gestures, delivery, pauses, content, entertaining)
   - Displays "better than last" indicator and feedback text
   - Top buttons for "New Speech", "Make a Ballot", "Feature Request", and authentication
+  - Footer link to Privacy Policy page
+
+- **Privacy Policy Page** ([app/privacy/page.tsx](app/privacy/page.tsx)):
+  - Comprehensive privacy policy covering data collection, usage, and third-party services
+  - Styled with neobrutalist design system
+  - Includes sections on: information collection, data usage, third-party services (Supabase, Google OAuth, Cloudflare Stream, YouTube, Resend, Vercel), data security, user rights, data retention, children's privacy, and contact information
+  - Accessible via `/privacy` route and linked from the leaderboard footer
   
 - **AuthButton Component** ([app/components/AuthButton.tsx](app/components/AuthButton.tsx)):
   - Google OAuth login/logout
@@ -378,6 +386,7 @@ The application features:
 ### Directory Structure
 
 - **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, BallotViewModal, FeatureRequestModal, FocusAreaDisplay)
+- **app/privacy/**: Privacy policy page route
 - **app/api/**: API route handlers for backend operations
   - `cloudflare-stream/init/`: Cloudflare Stream upload initialization
   - `youtube/init/`: YouTube resumable upload session initialization
