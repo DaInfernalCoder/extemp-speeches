@@ -818,15 +818,25 @@ const LeaderBoard: React.FC = () => {
         </div>
         )}
 
-        {/* Footer with Privacy Policy Link */}
+        {/* Footer with Privacy Policy and Terms Links */}
         <div className="max-w-4xl mx-auto mt-12 mb-8 text-center">
-          <Link
-            href="/privacy"
-            className="text-sm font-bold hover:underline transition-colors"
-            style={{ color: 'var(--primary)' }}
-          >
-            Privacy Policy
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+            <Link
+              href="/privacy"
+              className="text-sm font-bold hover:underline transition-colors"
+              style={{ color: 'var(--primary)' }}
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-sm" style={{ color: '#666' }}>•</span>
+            <Link
+              href="/terms"
+              className="text-sm font-bold hover:underline transition-colors"
+              style={{ color: 'var(--primary)' }}
+            >
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
     </>

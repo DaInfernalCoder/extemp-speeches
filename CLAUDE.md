@@ -34,6 +34,7 @@ This project uses Next.js 16's App Router architecture:
 - **app/layout.tsx**: Root layout defining global structure, fonts (Geist Sans/Mono), and metadata
 - **app/page.tsx**: Home page that renders the LeaderBoard component
 - **app/privacy/page.tsx**: Privacy policy page with comprehensive information about data collection and usage
+- **app/terms/page.tsx**: Terms of Service page with user agreements and service terms
 - **app/components/**: React components (currently contains LeaderBoard.tsx)
 - **app/globals.css**: Global styles using Tailwind CSS v4 syntax
 
@@ -281,13 +282,19 @@ The application features:
   - Shows reviewer names and rating criteria (gestures, delivery, pauses, content, entertaining)
   - Displays "better than last" indicator and feedback text
   - Top buttons for "New Speech", "Make a Ballot", "Feature Request", and authentication
-  - Footer link to Privacy Policy page
+  - Footer links to Privacy Policy and Terms of Service pages
 
 - **Privacy Policy Page** ([app/privacy/page.tsx](app/privacy/page.tsx)):
   - Comprehensive privacy policy covering data collection, usage, and third-party services
   - Styled with neobrutalist design system
   - Includes sections on: information collection, data usage, third-party services (Supabase, Google OAuth, Cloudflare Stream, YouTube, Resend, Vercel), data security, user rights, data retention, children's privacy, and contact information
   - Accessible via `/privacy` route and linked from the leaderboard footer
+
+- **Terms of Service Page** ([app/terms/page.tsx](app/terms/page.tsx)):
+  - Comprehensive terms of service covering user agreements, responsibilities, and service usage
+  - Styled with neobrutalist design system
+  - Includes sections on: acceptance of terms, use of service, user accounts, speech submissions, feedback and reviews, intellectual property, third-party services, termination, disclaimers, limitation of liability, indemnification, changes to terms, governing law, and contact information
+  - Accessible via `/terms` route and linked from the leaderboard footer
   
 - **AuthButton Component** ([app/components/AuthButton.tsx](app/components/AuthButton.tsx)):
   - Google OAuth login/logout
@@ -387,6 +394,7 @@ The application features:
 
 - **app/components/**: React client components (LeaderBoard, AuthButton, SpeechSubmitModal, BallotSubmitModal, BallotViewModal, FeatureRequestModal, FocusAreaDisplay)
 - **app/privacy/**: Privacy policy page route
+- **app/terms/**: Terms of Service page route
 - **app/api/**: API route handlers for backend operations
   - `cloudflare-stream/init/`: Cloudflare Stream upload initialization
   - `youtube/init/`: YouTube resumable upload session initialization
