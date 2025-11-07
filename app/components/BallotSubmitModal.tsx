@@ -54,6 +54,63 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess, preselec
     }
   }, [preselectedSpeechId, speeches]);
 
+  // Restore draft from sessionStorage when speech is selected or preselected
+  useEffect(() => {
+    if (selectedSpeechId && speeches.length > 0) {
+      // Verify the selected speech still exists in the speeches list
+      const speechExists = speeches.some(s => s.id === selectedSpeechId);
+      if (!speechExists) {
+        // Speech no longer exists, don't restore draft
+        return;
+      }
+      
+      try {
+        const draftKey = `ballot-draft-${selectedSpeechId}`;
+        const savedDraft = sessionStorage.getItem(draftKey);
+        if (savedDraft) {
+          const draft = JSON.parse(savedDraft);
+          // Restore all form fields from draft
+          if (draft.gestures !== undefined) setGestures(draft.gestures);
+          if (draft.delivery !== undefined) setDelivery(draft.delivery);
+          if (draft.pauses !== undefined) setPauses(draft.pauses);
+          if (draft.content !== undefined) setContent(draft.content);
+          if (draft.entertaining !== undefined) setEntertaining(draft.entertaining);
+          if (draft.feedbackText !== undefined) setFeedbackText(draft.feedbackText);
+          if (draft.betterThanLast !== undefined) setBetterThanLast(draft.betterThanLast);
+          if (draft.focusAreaRating !== undefined) setFocusAreaRating(draft.focusAreaRating);
+          if (draft.newFocusArea !== undefined) setNewFocusArea(draft.newFocusArea);
+        }
+      } catch (err) {
+        // Silently handle errors (invalid JSON, quota exceeded, etc.)
+        console.error('Error restoring draft:', err);
+      }
+    }
+  }, [selectedSpeechId, speeches]);
+
+  // Save form state to sessionStorage whenever fields change
+  useEffect(() => {
+    if (selectedSpeechId && isOpen) {
+      try {
+        const draftKey = `ballot-draft-${selectedSpeechId}`;
+        const draft = {
+          gestures,
+          delivery,
+          pauses,
+          content,
+          entertaining,
+          feedbackText,
+          betterThanLast,
+          focusAreaRating,
+          newFocusArea,
+        };
+        sessionStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch (err) {
+        // Silently handle errors (quota exceeded, private browsing, etc.)
+        console.error('Error saving draft:', err);
+      }
+    }
+  }, [selectedSpeechId, gestures, delivery, pauses, content, entertaining, feedbackText, betterThanLast, focusAreaRating, newFocusArea, isOpen]);
+
   const fetchSpeeches = async () => {
     setLoadingSpeeches(true);
     try {
@@ -122,7 +179,14 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess, preselec
         return;
       }
 
-      // Success - reset form
+      // Success - clear draft and reset form
+      try {
+        const draftKey = `ballot-draft-${selectedSpeechId}`;
+        sessionStorage.removeItem(draftKey);
+      } catch (err) {
+        // Silently handle errors
+        console.error('Error clearing draft:', err);
+      }
       resetForm();
       onSuccess();
       onClose();
@@ -181,10 +245,40 @@ export default function BallotSubmitModal({ isOpen, onClose, onSuccess, preselec
                 id="speech-select"
                 value={selectedSpeechId}
                 onChange={(e) => {
-                  setSelectedSpeechId(e.target.value);
-                  setBetterThanLast(false); // Reset checkbox when changing speech
-                  setFocusAreaRating(5); // Reset focus area rating
-                  setNewFocusArea(''); // Reset new focus area
+                  const newSpeechId = e.target.value;
+                  // Save current draft before switching (if a speech was selected)
+                  if (selectedSpeechId) {
+                    try {
+                      const currentDraftKey = `ballot-draft-${selectedSpeechId}`;
+                      const currentDraft = {
+                        gestures,
+                        delivery,
+                        pauses,
+                        content,
+                        entertaining,
+                        feedbackText,
+                        betterThanLast,
+                        focusAreaRating,
+                        newFocusArea,
+                      };
+                      sessionStorage.setItem(currentDraftKey, JSON.stringify(currentDraft));
+                    } catch (err) {
+                      // Silently handle errors
+                      console.error('Error saving draft before switch:', err);
+                    }
+                  }
+                  // Reset all form fields for new speech (will be restored if draft exists)
+                  setSelectedSpeechId(newSpeechId);
+                  setGestures(5);
+                  setDelivery(5);
+                  setPauses(5);
+                  setContent(5);
+                  setEntertaining(5);
+                  setFeedbackText('');
+                  setBetterThanLast(false);
+                  setFocusAreaRating(5);
+                  setNewFocusArea('');
+                  // Note: Fields will be restored by the restore useEffect if a draft exists for the new speech
                 }}
                 className="w-full px-4 py-2 brutal-border rounded-lg text-sm"
                 style={{
