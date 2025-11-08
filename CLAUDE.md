@@ -282,7 +282,11 @@ The application features:
   - Shows reviewer names and rating criteria (gestures, delivery, pauses, content, entertaining)
   - Displays "better than last" indicator and feedback text
   - Top buttons for "New Speech", "Make a Ballot", "Feature Request", and authentication
-  - Footer links to Privacy Policy and Terms of Service pages
+  - Footer section at the bottom with links to Privacy Policy and Terms of Service pages
+    - Footer is always visible immediately on page load (rendered outside loading conditionals)
+    - Styled with neobrutalist design (bold typography, primary color links with hover underline)
+    - Responsive layout (vertical on mobile, horizontal with separator on desktop)
+    - Links use Next.js Link component for client-side navigation
 
 - **Privacy Policy Page** ([app/privacy/page.tsx](app/privacy/page.tsx)):
   - Comprehensive privacy policy covering data collection, usage, and third-party services
