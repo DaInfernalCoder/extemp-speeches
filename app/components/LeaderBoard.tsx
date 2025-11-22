@@ -321,17 +321,36 @@ const LeaderBoard: React.FC = () => {
             // Set highlighted speech
             setHighlightedSpeechId(speechId);
             
-            // Scroll to the speech after a short delay to ensure DOM is ready
-            setTimeout(() => {
-              const element = speechRefs.current.get(speechId);
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }, 100);
-
             // Remove query parameter from URL
             const newUrl = window.location.pathname;
             window.history.replaceState({}, '', newUrl);
+            
+            // Scroll to the speech with retry mechanism
+            const scrollToSpeech = (attempts = 0) => {
+              // Try multiple methods to find the element
+              let element: HTMLElement | null = null;
+              
+              // Method 1: Try refs first
+              element = speechRefs.current.get(speechId) || null;
+              
+              // Method 2: Try data attribute
+              if (!element) {
+                element = document.querySelector(`[data-speech-id="${speechId}"]`) as HTMLElement;
+              }
+              
+              if (element) {
+                // Use requestAnimationFrame to ensure DOM is ready
+                requestAnimationFrame(() => {
+                  element!.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+              } else if (attempts < 10) {
+                // Retry up to 10 times with increasing delays
+                setTimeout(() => scrollToSpeech(attempts + 1), 100 * (attempts + 1));
+              }
+            };
+            
+            // Start scrolling after a short delay to ensure DOM is rendered
+            setTimeout(() => scrollToSpeech(), 200);
             
             // Remove highlight after 4 seconds
             setTimeout(() => {
@@ -668,6 +687,7 @@ const LeaderBoard: React.FC = () => {
                           <div 
                             key={urlIndex} 
                             className="grid grid-cols-2 gap-4 items-center transition-all duration-500"
+                            data-speech-id={speechDetail.speech_id}
                             ref={(el) => {
                               if (el) {
                                 speechRefs.current.set(speechDetail.speech_id, el);
@@ -831,6 +851,7 @@ const LeaderBoard: React.FC = () => {
                             <div 
                               key={urlIndex} 
                               className="flex flex-col items-center gap-1 transition-all duration-500"
+                              data-speech-id={speechDetail.speech_id}
                               ref={(el) => {
                                 if (el) {
                                   speechRefs.current.set(speechDetail.speech_id, el);
