@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -9,6 +9,7 @@ import SpeechSubmitModal from './SpeechSubmitModal';
 import BallotSubmitModal from './BallotSubmitModal';
 import BallotViewModal from './BallotViewModal';
 import FeatureRequestModal from './FeatureRequestModal';
+import ShareSpeechModal from './ShareSpeechModal';
 import FocusAreaDisplay from './FocusAreaDisplay';
 import StreakDisplay from './StreakDisplay';
 import NewBallotNotification from './NewBallotNotification';
@@ -116,6 +117,9 @@ const LeaderBoard: React.FC = () => {
   const [isBallotModalOpen, setIsBallotModalOpen] = useState(false);
   const [isFeatureRequestModalOpen, setIsFeatureRequestModalOpen] = useState(false);
   const [isBallotViewModalOpen, setIsBallotViewModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareSpeechId, setShareSpeechId] = useState<string | null>(null);
+  const [highlightedSpeechId, setHighlightedSpeechId] = useState<string | null>(null);
   const [selectedBallots, setSelectedBallots] = useState<Ballot[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [emailRemindersEnabled, setEmailRemindersEnabled] = useState(true);
@@ -124,6 +128,7 @@ const LeaderBoard: React.FC = () => {
   const [isNewBallotsMode, setIsNewBallotsMode] = useState(false);
   const [ballotNotificationRefresh, setBallotNotificationRefresh] = useState(0);
   const supabase = useMemo(() => createClient(), []);
+  const speechRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const fetchLeaderboard = useCallback(async () => {
     try {
@@ -294,6 +299,53 @@ const LeaderBoard: React.FC = () => {
     setBallotNotificationRefresh(prev => prev + 1);
   };
 
+  const handleShareSpeech = (speechId: string) => {
+    setShareSpeechId(speechId);
+    setIsShareModalOpen(true);
+  };
+
+  // Handle URL parameter for auto-scroll and highlighting
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const speechId = urlParams.get('speech');
+    
+    if (speechId && leaderboardData.length > 0 && !loading) {
+      // Find the speech in the leaderboard data
+      let found = false;
+      for (const entry of leaderboardData) {
+        for (const speechDetail of entry.speech_details) {
+          if (speechDetail.speech_id === speechId) {
+            found = true;
+            // Set highlighted speech
+            setHighlightedSpeechId(speechId);
+            
+            // Scroll to the speech after a short delay to ensure DOM is ready
+            setTimeout(() => {
+              const element = speechRefs.current.get(speechId);
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 100);
+
+            // Remove query parameter from URL
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+            
+            // Remove highlight after 4 seconds
+            setTimeout(() => {
+              setHighlightedSpeechId(null);
+            }, 4000);
+            
+            break;
+          }
+        }
+        if (found) break;
+      }
+    }
+  }, [leaderboardData, loading]);
+
   const handleDeleteSpeech = async (speechId: string) => {
     if (!confirm('Are you sure you want to delete this recording? This will also delete any ballots associated with it.')) {
       return;
@@ -398,6 +450,14 @@ const LeaderBoard: React.FC = () => {
         onMarkAsViewed={handleMarkBallotsAsViewed}
         currentUserId={user?.id}
         onBallotDeleted={handleModalSuccess}
+      />
+      <ShareSpeechModal
+        isOpen={isShareModalOpen}
+        onClose={() => {
+          setIsShareModalOpen(false);
+          setShareSpeechId(null);
+        }}
+        speechId={shareSpeechId || ''}
       />
 
       <div
@@ -603,8 +663,23 @@ const LeaderBoard: React.FC = () => {
                           const hasUserBallot = user && speechDetail.ballots?.some(ballot => ballot.reviewer_id === user.id);
                           const ballotCount = speechDetail.ballots?.length || 0;
 
+                          const isHighlighted = highlightedSpeechId === speechDetail.speech_id;
                           return (
-                          <div key={urlIndex} className="grid grid-cols-2 gap-4 items-center">
+                          <div 
+                            key={urlIndex} 
+                            className="grid grid-cols-2 gap-4 items-center transition-all duration-500"
+                            ref={(el) => {
+                              if (el) {
+                                speechRefs.current.set(speechDetail.speech_id, el);
+                              }
+                            }}
+                            style={{
+                              border: isHighlighted ? '4px solid var(--primary)' : 'none',
+                              backgroundColor: isHighlighted ? 'rgba(0, 102, 255, 0.1)' : 'transparent',
+                              borderRadius: isHighlighted ? '8px' : '0',
+                              padding: isHighlighted ? '4px' : '0'
+                            }}
+                          >
                             {/* Recording Link and Buttons */}
                             <div className="flex items-center gap-2 justify-center">
                               <a
@@ -617,15 +692,35 @@ const LeaderBoard: React.FC = () => {
                                 Recording {urlIndex + 1} - {formattedDate}
                               </a>
                               {user && user.id === speechDetail.user_id && (
-                                <button
-                                  onClick={() => handleDeleteSpeech(speechDetail.speech_id)}
-                                  className="flex items-center justify-center w-5 h-5 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
-                                  style={{ boxShadow: '2px 2px 0px #000' }}
-                                  title="Delete recording"
-                                  aria-label="Delete recording"
-                                >
-                                  <span className="text-white text-xs font-bold leading-none">×</span>
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleShareSpeech(speechDetail.speech_id)}
+                                    className="flex items-center justify-center w-5 h-5 rounded brutal-border transition-colors"
+                                    style={{
+                                      backgroundColor: 'var(--secondary)',
+                                      boxShadow: '2px 2px 0px #000'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#FFE066';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'var(--secondary)';
+                                    }}
+                                    title="Share recording"
+                                    aria-label="Share recording"
+                                  >
+                                    <span className="text-xs font-bold leading-none" style={{ color: '#1a1a1a' }}>🔗</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSpeech(speechDetail.speech_id)}
+                                    className="flex items-center justify-center w-5 h-5 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
+                                    style={{ boxShadow: '2px 2px 0px #000' }}
+                                    title="Delete recording"
+                                    aria-label="Delete recording"
+                                  >
+                                    <span className="text-white text-xs font-bold leading-none">×</span>
+                                  </button>
+                                </>
                               )}
                               {user && user.id !== speechDetail.user_id && !hasUserBallot && (
                                 <button
@@ -731,8 +826,23 @@ const LeaderBoard: React.FC = () => {
                           const formattedDate = new Date(speechDetail.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                           const hasUserBallot = user && speechDetail.ballots?.some(ballot => ballot.reviewer_id === user.id);
 
+                          const isHighlighted = highlightedSpeechId === speechDetail.speech_id;
                           return (
-                            <div key={urlIndex} className="flex flex-col items-center gap-1">
+                            <div 
+                              key={urlIndex} 
+                              className="flex flex-col items-center gap-1 transition-all duration-500"
+                              ref={(el) => {
+                                if (el) {
+                                  speechRefs.current.set(speechDetail.speech_id, el);
+                                }
+                              }}
+                              style={{
+                                border: isHighlighted ? '3px solid var(--primary)' : 'none',
+                                backgroundColor: isHighlighted ? 'rgba(0, 102, 255, 0.1)' : 'transparent',
+                                borderRadius: isHighlighted ? '8px' : '0',
+                                padding: isHighlighted ? '4px' : '0'
+                              }}
+                            >
                               <div className="flex items-center gap-2">
                                 <a
                                   href={speechDetail.speech_url}
@@ -744,15 +854,35 @@ const LeaderBoard: React.FC = () => {
                                   Recording {urlIndex + 1} - {formattedDate}
                                 </a>
                                 {user && user.id === speechDetail.user_id && (
-                                  <button
-                                    onClick={() => handleDeleteSpeech(speechDetail.speech_id)}
-                                    className="flex items-center justify-center w-4 h-4 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
-                                    style={{ boxShadow: '1px 1px 0px #000' }}
-                                    title="Delete recording"
-                                    aria-label="Delete recording"
-                                  >
-                                    <span className="text-white text-xs font-bold leading-none">×</span>
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => handleShareSpeech(speechDetail.speech_id)}
+                                      className="flex items-center justify-center w-4 h-4 rounded brutal-border transition-colors"
+                                      style={{
+                                        backgroundColor: 'var(--secondary)',
+                                        boxShadow: '1px 1px 0px #000'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#FFE066';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'var(--secondary)';
+                                      }}
+                                      title="Share recording"
+                                      aria-label="Share recording"
+                                    >
+                                      <span className="text-xs font-bold leading-none" style={{ color: '#1a1a1a' }}>🔗</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSpeech(speechDetail.speech_id)}
+                                      className="flex items-center justify-center w-4 h-4 rounded brutal-border bg-red-500 hover:bg-red-600 transition-colors"
+                                      style={{ boxShadow: '1px 1px 0px #000' }}
+                                      title="Delete recording"
+                                      aria-label="Delete recording"
+                                    >
+                                      <span className="text-white text-xs font-bold leading-none">×</span>
+                                    </button>
+                                  </>
                                 )}
                                 {user && user.id !== speechDetail.user_id && !hasUserBallot && (
                                   <button
