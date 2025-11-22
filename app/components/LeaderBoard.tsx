@@ -341,7 +341,28 @@ const LeaderBoard: React.FC = () => {
               if (element) {
                 // Use requestAnimationFrame to ensure DOM is ready
                 requestAnimationFrame(() => {
-                  element!.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  // Primary method: Manual scroll calculation (more reliable on desktop)
+                  const rect = element!.getBoundingClientRect();
+                  const scrollOffset = 20; // Offset to account for UI elements
+                  const elementTop = rect.top + window.pageYOffset;
+                  const targetPosition = elementTop - scrollOffset;
+                  
+                  // Use window.scrollTo for reliable scrolling across all browsers
+                  window.scrollTo({
+                    top: targetPosition,
+                    behavior: 'smooth'
+                  });
+                  
+                  // Fallback: Use scrollIntoView if manual calculation fails
+                  // This ensures compatibility if window.scrollTo doesn't work
+                  setTimeout(() => {
+                    const currentScroll = window.pageYOffset;
+                    const expectedScroll = targetPosition;
+                    // If scroll didn't happen (difference > 50px), try scrollIntoView
+                    if (Math.abs(currentScroll - expectedScroll) > 50) {
+                      element!.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }, 100);
                 });
               } else if (attempts < 10) {
                 // Retry up to 10 times with increasing delays
