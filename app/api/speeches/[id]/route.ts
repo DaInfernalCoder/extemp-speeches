@@ -1,6 +1,29 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 
+// Helper function to extract Cloudflare Stream video UID from URL
+function extractCloudflareStreamUid(url: string): string | null {
+  // Pattern 1: https://iframe.videodelivery.net/{uid} or with query params
+  const videodeliveryMatch = url.match(/videodelivery\.net\/([a-f0-9]{32})/i);
+  if (videodeliveryMatch) {
+    return videodeliveryMatch[1];
+  }
+
+  // Pattern 2: https://*.cloudflarestream.com/{uid}/watch
+  const cloudflarestreamMatch = url.match(/cloudflarestream\.com\/([a-f0-9]{32})\/watch/i);
+  if (cloudflarestreamMatch) {
+    return cloudflarestreamMatch[1];
+  }
+
+  // Pattern 3: Just the UID itself (32-char hex string)
+  const uidOnlyMatch = url.match(/^([a-f0-9]{32})$/i);
+  if (uidOnlyMatch) {
+    return uidOnlyMatch[1];
+  }
+
+  return null;
+}
+
 export async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> }
@@ -79,9 +102,43 @@ export async function DELETE(
       }
     }
 
-    // Note: We're not deleting from Cloudflare Stream as that would require additional API calls
-    // and Cloudflare Stream storage is relatively cheap. If you want to delete from Cloudflare,
-    // you would need to make an API call to Cloudflare Stream API here.
+    // Check if the speech URL is from Cloudflare Stream
+    const cloudflareUid = extractCloudflareStreamUid(speech.speech_url);
+
+    if (cloudflareUid) {
+      // Get Cloudflare credentials
+      const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+      const apiToken = process.env.CLOUDFLARE_STREAM_API_TOKEN;
+
+      if (accountId && apiToken) {
+        try {
+          const deleteResponse = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/${cloudflareUid}`,
+            {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${apiToken}`,
+              },
+            }
+          );
+
+          if (!deleteResponse.ok) {
+            const errorData = await deleteResponse.json().catch(() => ({}));
+            console.error('Error deleting video from Cloudflare Stream:', {
+              uid: cloudflareUid,
+              status: deleteResponse.status,
+              error: errorData.errors?.[0]?.message || 'Unknown error',
+            });
+            // Continue with speech deletion even if Cloudflare deletion fails
+          }
+        } catch (error) {
+          console.error('Error calling Cloudflare Stream API:', error);
+          // Continue with speech deletion even if Cloudflare deletion fails
+        }
+      } else {
+        console.warn('Cloudflare Stream credentials not configured. Skipping video deletion.');
+      }
+    }
 
     // Delete the speech record
     const { error: deleteError } = await supabase
