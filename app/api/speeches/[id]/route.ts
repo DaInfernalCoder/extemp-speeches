@@ -65,6 +65,9 @@ export async function DELETE(
       );
     }
 
+    // Total Annihilation: Delete everything related to this speech
+    // - Database record, ballots, and Cloudflare Stream video
+    
     // Delete associated ballots first (due to foreign key constraints)
     const { error: ballotsDeleteError } = await supabase
       .from('ballots')
